@@ -9,9 +9,9 @@ A framework in Python to control MineCraft bots with various LLMs.
 ```
     npm install 
 ```
-
-4. Create a conda environment with python3.10 and json5 installed.
-5. In the conda environment, run main.py. 
+4. You need Minecraft Java Edition 1.21.1 (Create a new world and open it to LAN port 55916) for running MineMCP. 
+5. Create a conda environment with python3.10 and json5 installed.
+6. In the conda environment, run main.py. 
 
 ```
     python main.py
