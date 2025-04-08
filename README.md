@@ -1,6 +1,8 @@
 # MineMCP
 A framework in Python to control MineCraft bots with various LLMs. 
 
+Join the Discord server for communication: [![Official Discord Server](https://img.icons8.com/?size=100&id=30888&format=png&color=000000)](https://discord.gg/zAxFt9cZs8)
+
 # Quick Start
 1. Clone the repo.
 2. Enter the root directory.
