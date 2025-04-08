@@ -1,0 +1,15 @@
+{
+    "host" : "127.0.0.1",
+    "port" : 55916,
+    "action_retry_times" : 3,
+    "agents" : [
+        {
+            "username" : "Casey",
+            "personality" : "A smart Minecraft agent",
+            "provider" : "OpenRouter", 
+            "model" : "anthropic/claude-3.5-sonnet",
+            "viewer_port" : null,
+            "range_goal" : 1
+        }
+    ]
+}
