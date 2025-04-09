@@ -1,9 +1,12 @@
-# MineMCP
-A framework in Python to control MineCraft bots with various LLMs. Join the Discord server for communication!   
+# MineMCP 🤖
+
+MineMCP is a Python framework for controlling Minecraft bots using various LLMs. It builds upon the excellent foundation laid by the <a href="https://github.com/kolbytn/mindcraft">MINDcraft</a> project, which offers an efficient system for enabling LLM agents to interact with Minecraft environments using MCP-style command-to-action mappings. Many ideas and design choices from MINDcraft have been incorporated into MineMCP. In essence, MineMCP can be seen as the Pythonic counterpart to MINDcraft (At lease, we hope so 😉).
+
+🦾 MineMCP is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
 
 <a href="https://discord.gg/zAxFt9cZs8"><img src="https://s2.loli.net/2025/04/08/BOwDWH3XiyTAZgb.png" alt="Official Discord Server" width="180" height="30"></a>
 
-# Quick Start
+# Quick Start 🚀
 0. You need Minecraft Java Edition 1.21.1 for running MineMCP. 
 1. Clone the repo.
 ```
