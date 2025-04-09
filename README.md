@@ -41,11 +41,12 @@ conda activate minemcp
 pip install -r requirements.txt
 ```
 8. Create a new world of version 1.21.1 of Minecraft Java Edition and open it to LAN at port 55916.
-9. Start the bots. 
+9. Fill in your token for the LLM provider service you want to use in configs.json, and make sure the agents you added use the corresponding provider and the supported models.
+10. Start the bots. 
 ```
 python main.py
 ```
-10. You can configure the agent in configs.json, which is the default configuration. You can also specify another configuration file when start main.py. You need to restart main.py with new configuaration, after quit the current process by pressing CTRL-C.
+11. You can configure the agent in configs.json, which is the default configuration. You can also specify another configuration file when start main.py. You need to restart main.py with new configuaration, after quit the current process by pressing CTRL-C.
 ```
 python main.py path/to/another/configs
 ```
