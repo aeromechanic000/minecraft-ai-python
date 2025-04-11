@@ -178,7 +178,7 @@ class Agent(object) :
             def handleMsg(this, sender, message, *args):
                 if sender is not None :
                     if sender == self.bot.username : 
-                        if random.random() < self.configs.get("reflection", 1.0) * self.reflection_decay : 
+                        if random.random() < self.configs.get("reflection", 0.0) * self.reflection_decay : 
                             self.push_msg({"sender" : sender, "message" : message, "type" : "whisper"})
                     elif sender not in self.configs.get("ignored_senders", []) :
                         if "@%s" % self.bot.username in message or "@all" in message : 
