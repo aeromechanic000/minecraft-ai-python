@@ -94,7 +94,7 @@ def get_actions(action_names = None) :
                 "player_name": {"type" : "string", "desc" : "The name of the player to mention in the chat.", "domain" : "either the name of any player in the game, or 'all' to mention all the players"},
                 "message": {"type" : "string", "desc" : "The message to send.", "domain" : "any valid text"},
             },
-            "perform" : "go_to_player", 
+            "perform" : "chat", 
         },
     ]
     actions = []
@@ -239,8 +239,8 @@ class Agent(object) :
                     action = actions.pop(0) 
                     add_log(title = self.pack_message("Perfom action."), content = str(action), label = "execute")
                     try : 
-                        execute = getattr(self, action["perform"]) 
-                        execute(**action["params"])
+                        perform = getattr(self, action["perform"]) 
+                        perform(**action["params"])
                         self.recent_actions.append(action["name"])
                         while len(self.recent_actions) > self.mcp_manager.configs.get("action_history_limit", 5) : 
                             self.recent_actions.pop(0)
@@ -354,6 +354,13 @@ Following is an example of the output:
         add_log(title = self.pack_message("Go to Nearest Block."), content = "Found %s at %s." % (get_block_display_name(get_block_id(block_name)), block.position), print = False)
         self.go_to_position(block.position.x, block.position.y, block.position.z, min_distance)
         return True
+    
+    def chat(self, player_name, message) : 
+        if player_name in self.bot.players.keys() + ["all"] : 
+            message = "@%s %s" % (player_name, message)
+            self.bot.chat(message)
+        else : 
+            self.bot.chat(message)
 
     def go_to_player(self, player_name, closeness = 1) : 
         for t in range(self.mcp_manager.configs.get("action_retry_times", 1)) :
