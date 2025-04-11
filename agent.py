@@ -16,7 +16,7 @@ def get_actions(action_names = None) :
                 "player_name": {"type" : "string", "desc" : "The name of the player to go to.", "domain" : "any valid value"},
                 "closeness": {"type" : "float", "desc" : "How close to get to the player. If no special reason, closeness should be set to 1.", "domain" : [0, math.inf]},
             },
-            "execute" : "go_to_player", 
+            "perform" : "go_to_player", 
         },
         {
             "name" : "move_away", 
@@ -24,7 +24,7 @@ def get_actions(action_names = None) :
             "params": {
                 "distance": {"type" : "float", "desc" : "The distance to move away.", "domain": [20, math.inf]},
             },
-            "execute" : "move_away", 
+            "perform" : "move_away", 
         },
         {
             "name" : "collect_blocks",
@@ -33,7 +33,7 @@ def get_actions(action_names = None) :
                 "block_name" : {"type": "BlockName", "desc": "The block type to collect.", "domain" : get_collect_block_names()},
                 "num" : {"type": "int", "desc" : "The number of blocks to collect.", "domain" : [1, 16]}
             },
-            "execute" : "collect_blocks", 
+            "perform" : "collect_blocks", 
         },
         {
             "name" : "equip",
@@ -41,7 +41,7 @@ def get_actions(action_names = None) :
             "params" : {
                 "item_name": { "type" : "ItemName", "desc" : "The name of the item to equip.", "domain" : get_equip_item_names()}, 
             },
-            "execute" : "equip",
+            "perform" : "equip",
         },
         {
             "name" : "discard",
@@ -50,7 +50,7 @@ def get_actions(action_names = None) :
                 "item_name" : {"type" : "ItemName", "desc" : "The name of the item to discard.", "domain" : get_discard_item_names()},
                 "num" : {"type" : "int", "desc" : "The number of items to discard.", "domain" : [1, 16]}
             },
-            "execute" : "discard",
+            "perform" : "discard",
         },
         {
             "name" : "search_block",
@@ -59,7 +59,7 @@ def get_actions(action_names = None) :
                 "block_name" : {"type" : "BlockName", "desc" : "The block type to go to.", "domain" : get_search_block_names()},
                 "range" : {"type" : "float", "desc" : "The range to search for the block.", "domain" : [32, 512]}
             },
-            "execute" : "search_block",
+            "perform" : "search_block",
         },
         {
             "name" : "search_entity",
@@ -68,7 +68,7 @@ def get_actions(action_names = None) :
                 "entity_name" : {"type" : "string", "desc" : "The type of entity to go to.", "domain" : get_search_entity_names()},
                 "range": {"type" : "float", "desc" : "The range to search for the entity.", "domain" : [32, 512]}
             },
-            "execute" : "search_entity",
+            "perform" : "search_entity",
         },
         {
             "name" : "fight",
@@ -76,7 +76,7 @@ def get_actions(action_names = None) :
             "params": {
                 "entity_name": { "type" : "string", "desc" : "The type of entity to attack.", "domain" : get_fight_entity_names()}
             },
-            "execute" : "fight",
+            "perform" : "fight",
         },
         {
             "name" : "craft",
@@ -85,7 +85,16 @@ def get_actions(action_names = None) :
                 "recipe_name": {"type" : "ItemName", "desc" : "The name of the output item to craft.", "domain" : get_craft_item_names()},
                 "num" : {"type" : "int", "desc" : "The number of times to craft the recipe. This is NOT the number of output items, as it may craft many more items depending on the recipe.", "domain" : [1, 4]}
             },
-            "execute" : "craft",
+            "perform" : "craft",
+        },
+        {
+            "name" : "chat", 
+            "desc": "Chat with others.",
+            "params": {
+                "player_name": {"type" : "string", "desc" : "The name of the player to mention in the chat.", "domain" : "either the name of any player in the game, or 'all' to mention all the players"},
+                "message": {"type" : "string", "desc" : "The message to send.", "domain" : "any valid text"},
+            },
+            "perform" : "go_to_player", 
         },
     ]
     actions = []
@@ -121,6 +130,7 @@ def validate_param(value, _type, domain) :
         except : 
             valid_value = None
     return valid_value
+
 class Agent(object) : 
     def __init__(self, configs, mcp_manager) :
         add_log(title = "Agent Created.", content = "Agent has been created with configs: %s" % configs, label = "header")
@@ -141,6 +151,7 @@ class Agent(object) :
         self.plan_thread, self.act_thread = None, None
         self.status_summary, self.recent_actions = "", [] 
         self.messages, self.actions = [], []
+        self.reflection_decay = 0.5 
         self.plan_running, self.act_running = False, False
 
         @On(self.bot, 'resourcePack')
@@ -165,11 +176,17 @@ class Agent(object) :
 
             @On(self.bot, 'chat')
             def handleMsg(this, sender, message, *args):
-                if sender and (sender != self.bot.username):
-                    if "@%s" % self.bot.username in message or "@all" in message : 
-                        self.push_msg({"sender" : sender, "message" : message, "type" : "whisper"})
+                if sender is not None :
+                    if sender == self.bot.username : 
+                        if random.random() < self.configs.get("reflection", 1.0) * self.reflection_decay : 
+                            self.push_msg({"sender" : sender, "message" : message, "type" : "whisper"})
+                    elif sender not in self.configs.get("ignored_senders", []) :
+                        if "@%s" % self.bot.username in message or "@all" in message : 
+                            self.push_msg({"sender" : sender, "message" : message, "type" : "whisper"})
+                        else : 
+                            self.push_msg({"sender" : sender, "message" : message, "type" : "update"})
                     else : 
-                        self.push_msg({"sender" : sender, "message" : message, "type" : "update"})
+                        add_log(title = self.pack_message("Ignored message."), content = "{\"sender\" : \"%s\", \"message\" : \"%s\"}" % (sender, message), print = False)
 
         @On(self.bot, "end")
         def handle(*args):
@@ -222,9 +239,11 @@ class Agent(object) :
                     action = actions.pop(0) 
                     add_log(title = self.pack_message("Perfom action."), content = str(action), label = "execute")
                     try : 
-                        execute = getattr(self, action["execute"]) 
+                        execute = getattr(self, action["perform"]) 
                         execute(**action["params"])
                         self.recent_actions.append(action["name"])
+                        while len(self.recent_actions) > self.mcp_manager.configs.get("action_history_limit", 5) : 
+                            self.recent_actions.pop(0)
                     except Exception as e : 
                         add_log(title = self.pack_message("Exception in performing action."), label = "error")
                         add_log(title = self.pack_message("Exception."), content = str(e), label = "error", print = False)
@@ -238,7 +257,8 @@ class Agent(object) :
         prompt = '''
 You are a useful AI assistant in planning the actions for Minecraft bot. Given the status of the agent, you should evaluate the target of the agent and the current situations, and generate following contents: 
 1. If applicable, update the status summary according to the current status and latest messages;
-2. If applicable, indicate the next action (selected from the 'Available Actions') for the agent to execute, and provide the values for the parameters following the detailed description in 'Available Actions' of the selected action. 
+2. If applicable, indicate the next action (selected from the 'Available Actions') for the agent to execute, and provide the values for the parameters following the detailed description in 'Available Actions' of the selected action.
+3. If an action is necessary, you should prefer the actions other than 'chat' to make sure you finish the task before sending messages to the others. In other words, 'chat' is only required if it is the last thing or the only thing you can do to respond to the others.  
 
 ## Agent's Status
 %s
@@ -256,10 +276,10 @@ You are a useful AI assistant in planning the actions for Minecraft bot. Given t
 The result should be formatted in **JSON** dictionary and enclosed in **triple backticks (` ``` ` )**  without labels like 'json', 'css', or 'data'.
 - **Do not** use triple backticks anywhere else in your answer.
 - The JSON must include the following keys and values accordingly :
-        - 'status' : An updated version of the status summary of the agent. If no update is needed, set value to null.
-        - 'action' : An JSON dictionary to specify the next action for the agent to execute. If no action is needed, set value to null. Otherwise, the dicionary should includes following keys and values : 
-                - 'name' : a JSON string of the action name which is listed in the 'Available Actions'
-                - 'params' : a JSON dictionary where keys are the names of the parameters as described in the 'Available Actions' for the selecte action; and the associated value should follow the 'type' and 'domain' constrains in the description. 
+    - 'status' : An updated version of the status summary of the agent. If no update is needed, set value to null.
+    - 'action' : An JSON dictionary to specify the next action for the agent to execute. If no action is needed, set value to null. Otherwise, the dicionary should includes following keys and values : 
+        - 'name' : a JSON string of the action name which is listed in the 'Available Actions'
+        - 'params' : a JSON dictionary where keys are the names of the parameters as described in the 'Available Actions' for the selecte action; and the associated value should follow the 'type' and 'domain' constrains in the description. 
 
 Following is an example of the output: 
 ```
