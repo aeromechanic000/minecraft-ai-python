@@ -51,6 +51,10 @@ python main.py
 python main.py path/to/another/configs
 ```
 
+# Documentation
+
+More detailed information of MineMCP can be found in the [Documentation](https://github.com/aeromechanic000/MineMCP/tree/main/doc).
+
 # Citation
 ```
 @misc{minemcp2025,
