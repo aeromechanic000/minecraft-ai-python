@@ -184,7 +184,7 @@ This method promotes high-level adaptability, zero-shot task generalization, and
 
 ### 1. Voyager: An Open-Ended Embodied Agent with Large Language Models
 
-One of the most representative and advanced implementations of LLM-based action planning in Minecraft is the **Voyager** project (https://voyager.minedojo.org/), developed as part of the MineDojo ecosystem. Voyager showcases how large language models (LLMs) like GPT-4 can serve as the core planning modules for autonomous Minecraft agents in open-ended, long-horizon tasks.
+One of the most representative and advanced implementations of LLM-based action planning in Minecraft is the [**Voyager**](https://voyager.minedojo.org/) project, developed as part of the MineDojo ecosystem. Voyager showcases how large language models (LLMs) like GPT-4 can serve as the core planning modules for autonomous Minecraft agents in open-ended, long-horizon tasks.
 
 #### Core Ideas of Voyager
 
