@@ -44,13 +44,13 @@ def get_actions(action_names = None) :
             "perform" : "equip",
         },
         {
-            "name" : "discard",
-            "desc" : "Discard the given item from the inventory.",
+            "name" : "drop",
+            "desc" : "Drop the given item from the inventory.",
             "params" : {
-                "item_name" : {"type" : "ItemName", "desc" : "The name of the item to discard.", "domain" : get_discard_item_names()},
-                "num" : {"type" : "int", "desc" : "The number of items to discard.", "domain" : [1, 16]}
+                "item_name" : {"type" : "ItemName", "desc" : "The name of the item to drop.", "domain" : get_drop_item_names()},
+                "num" : {"type" : "int", "desc" : "The number of items to drop.", "domain" : [1, 16]}
             },
-            "perform" : "discard",
+            "perform" : "drop",
         },
         {
             "name" : "search_block",
@@ -151,7 +151,6 @@ class Agent(object) :
         self.plan_thread, self.act_thread = None, None
         self.status_summary, self.recent_actions = "", [] 
         self.messages, self.actions = [], []
-        self.reflection_decay = 0.5 
         self.plan_running, self.act_running = False, False
 
         @On(self.bot, 'resourcePack')
@@ -165,7 +164,7 @@ class Agent(object) :
             viewer_port = self.configs.get("viewer_port", None)
             viewer_first_person = self.configs.get("viewer_first_person", False)
             viewer_distance = self.configs.get("viewer_distance", 6)
-            if viewer_port : 
+            if viewer_port is not None : 
                 require('canvas')
                 viewer = require('prismarine-viewer')
                 viewer["mineflayer"](self.bot, {"port": viewer_port, "firstPerson" : viewer_first_person, "viewDistance" : viewer_distance})
@@ -178,10 +177,10 @@ class Agent(object) :
             def handleMsg(this, sender, message, *args):
                 if sender is not None :
                     if sender == self.bot.username : 
-                        if random.random() < self.configs.get("reflection", 0.0) * self.reflection_decay : 
+                        if random.random() < self.configs.get("reflection", 0.0) : 
                             self.push_msg({"sender" : sender, "message" : message, "type" : "whisper"})
                     elif sender not in self.configs.get("ignored_senders", []) :
-                        if "@%s" % self.bot.username in message or "@all" in message : 
+                        if "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message : 
                             self.push_msg({"sender" : sender, "message" : message, "type" : "whisper"})
                         else : 
                             self.push_msg({"sender" : sender, "message" : message, "type" : "update"})
@@ -195,7 +194,15 @@ class Agent(object) :
             self.stop()
             if all([agent.plan_running == False for agent in self.mcp_manager.agents.values()]) : 
                 self.mcp_manager.stop()
-        
+    
+    def stop(self) :
+        self.act_running, self.plan_running = False, False
+        if self.act_thread is not None : 
+            self.act_thread.join()
+        if self.plan_thread is not None : 
+            self.plan_thread.join()
+        add_log(title = self.pack_message("Stop."), label = "success")
+
     def push_msg(self, msg) : 
         self.messages.append(msg)
 
@@ -246,7 +253,7 @@ class Agent(object) :
                             self.recent_actions.pop(0)
                     except Exception as e : 
                         add_log(title = self.pack_message("Exception in performing action."), label = "error")
-                        add_log(title = self.pack_message("Exception."), content = str(e), label = "error", print = False)
+                        add_log(title = self.pack_message("Act."), content = "Exception: %s" % e, label = "error", print = False)
             except Exception as e : 
                 add_log(title = self.pack_message("Act Thread."), content = "Exception: %s" % e, label = "warning")
 
@@ -256,8 +263,8 @@ class Agent(object) :
             latest_messages += "'%s' said: %s\n" % (message["sender"], message["message"])
         prompt = '''
 You are a useful AI assistant in planning the actions for Minecraft bot. Given the status of the agent, you should evaluate the target of the agent and the current situations, and generate following contents: 
-1. If applicable, update the status summary according to the current status and latest messages;
-2. If applicable, indicate the next action (selected from the 'Available Actions') for the agent to execute, and provide the values for the parameters following the detailed description in 'Available Actions' of the selected action.
+1. If applicable, update the status summary according to the current status and latest messages, the summary should include the key information that is necessary or useful to describe the overall situation of the agent, especially the underlying goal for action and the performed actions, and outcomes;
+2. If applicable, indicate the next action (selected from the 'Available Actions') for the agent to execute, and provide the values for the parameters following the detailed description in 'Available Actions' of the selected action;
 3. If an action is necessary, you should prefer the actions other than 'chat' to make sure you finish the task before sending messages to the others. In other words, 'chat' is only required if it is the last thing or the only thing you can do to respond to the others.  
 
 ## Agent's Status
@@ -299,6 +306,28 @@ Following is an example of the output:
     
     def get_status(self) : 
         status = "- Agent's Name: %s\n- Status Summary: %s " % (self.bot.username, self.status_summary)
+        if self.bot.entity is not None and self.bot.entity.position is not None : 
+            pos = self.bot.entity.position
+            status = "\n- Agent's Position: x: %s, y: %s, z: %s" % (math.floor(pos.x), math.floor(pos.y), math.floor(pos.z))
+        blocks, blocks_info = self.get_nearest_blocks(block_names = get_status_block_names(), distance = 64, count = 16), ""
+        for block in blocks : 
+            pos = block.position
+            if pos is not None :
+                blocks_info += "%s (at x: %s, y: %s, z: %x);" % (block.name,  math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)) 
+        if len(blocks_info.strip()) > 0 : 
+            status += "\n- Blocks Nearby: %s" % blocks_info
+        entities, entities_info = self.get_nearby_entities(32), "" 
+        for entity in entities : 
+            pos = entity.position
+            if pos is not None :
+                entities_info += "%s (at x: %s, y: %s, z: %x);" % (entity.name,  math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)) 
+        if len(entities_info.strip()) > 0 : 
+            status += "\n- Entities Nearby: %s" % entities_info
+        items_in_inventory, items_info = self.get_item_counts(), "" 
+        for key, value in items_in_inventory.items() : 
+            items_info += "%s %s;" % (value, key)
+        if len(items_info.strip()) > 0 : 
+            status += "\n- Items in Inventory: %s" % items_info
         if len(self.recent_actions) > 0 : 
             recent_actions_desc = self.mcp_manager.get_actions_desc(self.recent_actions)
             if len(recent_actions_desc.strip()) > 0 : 
@@ -316,15 +345,6 @@ Following is an example of the output:
     def pack_message(self, message) : 
         return "[Agent \'%s\'] %s" % (self.configs["username"], message)
 
-    def stop(self) :
-        if self.act_thread is not None : 
-            self.act_running = False
-            self.act_thread.join()
-        if self.plan_thread is not None : 
-            self.plan_running = False
-            self.plan_thread.join()
-        add_log(title = self.pack_message("Stop."), label = "success")
-    
     def get_an_item_in_hotbar(self, item_name) :
         items = list(filter(lambda slot : slot is not None and slot.name == item_name, self.bot.inventory.slots))
         item  = items[0] if len(items) > 0 else None
@@ -356,15 +376,18 @@ Following is an example of the output:
         return True
     
     def chat(self, player_name, message) : 
-        if player_name in self.bot.players.keys() + ["all"] : 
+        if player_name == "all" or self.bot.players[player_name] is not None : 
             message = "@%s %s" % (player_name, message)
             self.bot.chat(message)
         else : 
             self.bot.chat(message)
 
     def go_to_player(self, player_name, closeness = 1) : 
-        for t in range(self.mcp_manager.configs.get("action_retry_times", 1)) :
-            add_log(title = self.pack_message("Try for the %d-th time." % (t + 1)))
+        for t in range(self.mcp_manager.configs.get("action_retry_num", 1)) :
+            if self.act_running == False :
+                add_log(title = self.pack_message("Stop action befor the %d-th try." % (t + 1)))
+            else : 
+                add_log(title = self.pack_message("Try for the %d-th time." % (t + 1)))
             player = self.bot.players[player_name]
             if player is not None and player.entity is not None :  
                 pos = player.entity.position
@@ -375,8 +398,11 @@ Following is an example of the output:
                 add_log(title = self.pack_message("Failed to get player's position."), label = "warning") 
 
     def move_away(self, distance) : 
-        for t in range(self.mcp_manager.configs.get("action_retry_times", 1)) :
-            add_log(title = self.pack_message("Try for the %d-th time." % (t + 1)))
+        for t in range(self.mcp_manager.configs.get("action_retry_num", 1)) :
+            if self.act_running == False :
+                add_log(title = self.pack_message("Stop action befor the %d-th try." % (t + 1)))
+            else :
+                add_log(title = self.pack_message("Try for the %d-th time." % (t + 1)))
             if self.bot.entity is not None :
                 pos = self.bot.entity.position
                 vector = get_random_vector(distance)
@@ -387,58 +413,61 @@ Following is an example of the output:
                 add_log(title = self.pack_message("Failed to get bot's position."), label = "warning")
 
     def collect_blocks(self, block_name, num, exclude = None) : 
-        for t in range(self.mcp_manager.configs.get("action_retry_times", 1)) :
-            block_names = [block_name]
-            if block_name in ["coal", "diamond", "emerald", "iron", "gold", "lapis_lazuli", "redstone", ] : 
-                block_names.append("%s_ore" % block_name)
-            if block_name.endswith("ore") :
-                block_names.append("deepslate_%s" % block_name)
-            if block_name == "dirt" : 
-                block_names.append("grass_block")
-            collected = 0
-            for i in range(num) : 
-                blocks = self.get_nearest_blocks(block_names = block_names, distance = 32, count = 16)
-                if exclude is not None and isinstance(exclude, list) : 
-                    blocks = list(filter(lambda block : all([block.position.x != position.x or block.position.y != position.y or block.position.z != position.z for position in exclude]), blocks))
-                movements = pathfinder.Movements(self.bot)
-                movements.dontMineUnderFallingBlock = False
-                blocks = list(filter(lambda block: movements.safeToBreak(block), blocks))
-                if len(blocks) < 1 : 
-                    if collected < 1 :  
-                        self.bot.chat("I don't find any %s nearby to collect." % get_block_display_name(get_block_id(block_name)))
-                        add_log(title = self.pack_message("Collect Blocks"), content = "Don't find any %s nearby." % get_block_display_name(get_block_id(block_name)), print = False)
-                    else :
-                        self.bot.chat("Can't find more %s nearby to collect." % get_block_display_name(get_block_id(block_name)))
-                        add_log(title = self.pack_message("Collect Blocks"), content = "Can't find more %s nearby." % get_block_display_name(get_block_id(block_name)), print = False)
-                    break
+        block_names = [block_name]
+        if block_name in ["coal", "diamond", "emerald", "iron", "gold", "lapis_lazuli", "redstone", ] : 
+            block_names.append("%s_ore" % block_name)
+        if block_name.endswith("ore") :
+            block_names.append("deepslate_%s" % block_name)
+        if block_name == "dirt" : 
+            block_names.append("grass_block")
+        init_block_count = self.get_item_counts().get(block_name, 0)
+        collected, action_num = 0, 0
+        while self.act_running == True and collected < num and action_num < self.mcp_manager.configs.get("action_repeat_num_limit", 32) :   
+            action_num += 1
+            blocks = self.get_nearest_blocks(block_names = block_names, distance = 512, count = 16)
+            if exclude is not None and isinstance(exclude, list) : 
+                blocks = list(filter(lambda block : all([block.position.x != position.x or block.position.y != position.y or block.position.z != position.z for position in exclude]), blocks))
+            movements = pathfinder.Movements(self.bot)
+            movements.dontMineUnderFallingBlock = False
+            blocks = list(filter(lambda block: movements.safeToBreak(block), blocks))
+            if len(blocks) < 1 : 
+                if collected < 1 :  
+                    self.bot.chat("I don't find any %s nearby to collect." % get_block_display_name(get_block_id(block_name)))
+                    add_log(title = self.pack_message("Collect Blocks"), content = "Don't find any %s nearby." % get_block_display_name(get_block_id(block_name)), print = False)
+                else :
+                    self.bot.chat("Can't find more %s nearby to collect." % get_block_display_name(get_block_id(block_name)))
+                    add_log(title = self.pack_message("Collect Blocks"), content = "Can't find more %s nearby." % get_block_display_name(get_block_id(block_name)), print = False)
+                break
 
-                block = blocks[0]
-                self.bot.tool.equipForBlock(block)
-                item_id = self.bot.heldItem if self.bot.heldItem is not None else None 
-                if not block.canHarvest(item_id) : 
-                    self.bot.chat("I dont't have right tools to harvest %s." % get_block_display_name(get_block_id(block_name)))
-                    break
+            block = blocks[0]
+            self.bot.tool.equipForBlock(block)
+            item_id = self.bot.heldItem if self.bot.heldItem is not None else None 
+            if not block.canHarvest(item_id) : 
+                self.bot.chat("I dont't have right tools to harvest %s." % get_block_display_name(get_block_id(block_name)))
+                break
 
-                try :
-                    if must_collect_manually(block_name) :
-                        add_log(title = self.pack_message("Collect Blocks"), content = "%s must be collected manually." % get_block_display_name(get_block_id(block_name)), print = False)
-                        self.go_to_position(block.position.x, block.position.y, block.position.z, 2)
-                        self.bot.dig(block)
-                        self.pickup_nearby_items()
-                    else :
-                        self.bot.collectBlock.collect(block)
-                    collected += 1
-                    self.auto_light()
-                except Exception as e :
-                    add_log(title = self.pack_message("Collect Blocks"), content = "Exception in collecting %s: %s" % (get_block_display_name(get_block_id(block_name)), e), label = "warning")
+            try :
+                if must_collect_manually(block_name) :
+                    add_log(title = self.pack_message("Collect Blocks"), content = "%s must be collected manually." % get_block_display_name(get_block_id(block_name)), print = False)
+                    self.go_to_position(block.position.x, block.position.y, block.position.z, 2)
+                    self.bot.dig(block)
+                    self.pickup_nearby_items()
+                else :
+                    self.bot.collectBlock.collect(block)
+                block_count = self.get_item_counts().get(block_name, 0)
+                collected = block_count - init_block_count
+                self.auto_light()
+            except Exception as e :
+                add_log(title = self.pack_message("Collect Blocks"), content = "Exception in collecting %s." % get_block_display_name(get_block_id(block_name)), label = "warning")
+                add_log(title = self.pack_message("Collect Blocks"), content = "Exception in collecting %s: %s" % (get_block_display_name(get_block_id(block_name)), e), label = "warning", print = False)
 
-                if self.bot.interrupt_code :
-                    break;  
+            if self.bot.interrupt_code :
+                break;  
 
-            self.bot.chat("I have collected %d %s." % (collected, get_block_display_name(get_block_id(block_name))))
+        self.bot.chat("I have collected %d %s." % (collected, get_block_display_name(get_block_id(block_name))))
         return collected > 0
     
-    def get_nearest_blocks(self, block_names = None, distance = 32, count = 16) :
+    def get_nearest_blocks(self, block_names = None, distance = 64, count = 16) :
         block_ids = []
         if block_names is None or not isinstance(block_names, list) : 
             block_ids = get_all_block_ids(['air'])
@@ -454,7 +483,7 @@ Following is an example of the output:
         blocks = sorted(blocks, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distance"]))
         return [block["block"] for block in blocks]
  
-    def get_nearest_block(self, block_name, distance = 16) :
+    def get_nearest_block(self, block_name, distance = 64) :
         blocks = self.get_nearest_blocks(block_names = [block_name], distance = distance, count = 1)
         if len(blocks) > 0 :
             return blocks[0]
@@ -709,25 +738,25 @@ Following is an example of the output:
         self.bot.chat("I am equipped %s." % item_name)
         return True
 
-    def discard(self, item_name, num = -1) :
-        discarded = 0
+    def drop(self, item_name, num = -1) :
+        dropped = 0
         while True :
             item = self.get_an_item_in_inventory(item_name)
             if item is None :
                 break
-            to_discard = item.count if num < 0 else min(num - discarded, item.count)
-            self.bot.toss(item.type, None, to_discard)
-            discarded += to_discard
-            if num >= 0 and discarded >= num :
+            to_drop = item.count if num < 0 else min(num - dropped, item.count)
+            self.bot.toss(item.type, None, to_drop)
+            dropped += to_drop
+            if num >= 0 and dropped >= num :
                 break
 
-        if discarded < 1 :
-            self.bot.chat("I don't have any %s to discard." % get_item_display_name(get_item_id(item_name)))
-            add_log(title = self.pack_message("Discard Item."), content = "Don't have any %s to discard." % get_item_display_name(get_item_id(item_name)), print = False)
+        if dropped < 1 :
+            self.bot.chat("I don't have any %s to drop." % get_item_display_name(get_item_id(item_name)))
+            add_log(title = self.pack_message("Drop Item."), content = "Don't have any %s to drop." % get_item_display_name(get_item_id(item_name)), print = False)
             return False
 
-        self.bot.chat("I discarded %d %s." % (discarded, get_item_display_name(get_item_id(item_name))))
-        add_log(title = self.pack_message("Discard Item."), content = "Discarded %d %s." % (discarded, get_item_display_name(get_item_id(item_name))), print = False)
+        self.bot.chat("I dropped %d %s." % (dropped, get_item_display_name(get_item_id(item_name))))
+        add_log(title = self.pack_message("Drop Item."), content = "Dropped %d %s." % (dropped, get_item_display_name(get_item_id(item_name))), print = False)
         return True 
     
     def search_block(self, block_name, range = 64, min_distance = 2) :
@@ -746,13 +775,20 @@ Following is an example of the output:
         entity = self.bot.nearestEntity(lambda entity : predicate(entity) and self.bot.entity.position.distanceTo(entity.position) < max_distance)
         return entity
     
-    def get_nearby_entities(self, max_distance = 16) : 
+    def get_nearby_entities(self, max_distance = 32) : 
         entities = []
-        for entity in self.bot.entities :
-            distance = entity.position.distanceTo(self.bot.entity.position)
-            if distance > max_distance: continue
-            entities.append({"entity" : entity, "distance" : distance})
-        entities = sorted(entities, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distnace"]))
+        for entity_id in self.bot.entities :
+            entity = self.bot.entities[entity_id]
+            try : 
+                if entity is not None and entity.position is not None and self.bot.entity is not None :
+                    distance = entity.position.distanceTo(self.bot.entity.position)
+                    if distance > max_distance: continue
+                    entities.append({"entity" : entity, "distance" : distance})
+                else :
+                    add_log(title = self.pack_message("Get Nearby Entities."), content = "Get invalid entities.", print = False)
+            except Exception as e : 
+                add_log(title = self.pack_message("Get Nearby Entities."), content = "Exception: %s" % e, print = False)
+        entities = sorted(entities, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distance"]))
         return [entity["entity"] for entity in entities]
 
     def get_nearest_freespace(self, size = 1, distance = 8) :
@@ -909,4 +945,19 @@ Following is an example of the output:
                 if item.name not in inventory.keys() :
                     inventory[item.name] = 0
                 inventory[item.name] += item.count
+        return inventory
+
+    def get_hotbar_counts(self) :
+        hotbar = {}
+        for item in self.bot.inventory.slots :
+            if item is not None :
+                if item.name not in hotbar.keys() :
+                    hotbar[item.name] = 0
+                hotbar[item.name] += item.count
+        return hotbar
+
+    def get_item_counts(self) :
+        inventory = self.get_inventory_counts()
+        hotbar = self.get_hotbar_counts()
+        inventory.update(hotbar)
         return inventory

@@ -61,7 +61,7 @@ class MineMCP(object) :
                         action = None
                         break
                 if action is not None : 
-                    action["execute"] = action_data["execute"]
+                    action["perform"] = action_data["perform"]
         return action
 
     def stop(self):
