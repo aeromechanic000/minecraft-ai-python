@@ -114,7 +114,8 @@ For example, in the *MineMCP* system, the LLM-based planner might receive struct
 
 ## RL-Based Action Policy
 
-Reinforcement Learning (RL) has been widely used in developing Minecraft agents. In this paradigm:
+In the Minecraft domain, **Reinforcement Learning (RL)** has been widely explored as a method to train agents to autonomously learn action policies based on environmental feedback. 
+In this paradigm:
 
 - The agent learns by **trial and error**, receiving **rewards** for successful actions.
 - Over time, it builds a policy that maximizes cumulative reward in given situations.
@@ -126,7 +127,45 @@ Challenges with RL-based approaches include:
 - Difficulty in generalizing to unseen scenarios
 - Limited interpretability and flexibility
 
-Despite these challenges, RL remains a powerful tool, especially when paired with hierarchical learning or curriculum learning strategies.
+Despite these challenges, RL remains a powerful tool, especially when paired with hierarchical learning or curriculum learning strategies. Two of the most significant contributions in this area are the **MineRL** and **MineDojo** projects.
+
+### 1. MineRL: Learning from Large-Scale Human Demonstrations
+
+[MineRL](https://minerl.readthedocs.io/en/latest/) is a benchmark environment and dataset designed to make sample-efficient RL in Minecraft possible. It was created with the goal of enabling agents to learn complex behaviors — such as crafting tools or navigating terrain — with minimal environmental interaction.
+
+**Key Features:**
+- **Large Human Dataset (MineRL-v0):** Includes over 60 million state-action pairs collected from real players performing tasks like mining wood, crafting, and surviving.
+- **Hierarchical and Sparse Tasks:** Supports complex tasks like *ObtainDiamond*, which requires sequential subtasks such as collecting logs, crafting tools, and mining deep underground.
+- **Sample Efficiency Benchmark:** It was central to the [MineRL BASALT and Diamond Challenges](https://minerl.io/competitions/), where agents were evaluated on how well they could learn from limited environment interactions.
+
+**Representative Techniques Used:**
+- **Imitation Learning:** Pretraining with human demonstrations to bootstrap learning.
+- **Reinforcement Learning (PPO, A3C, DQN, etc.):** Fine-tuning behavior through environment feedback.
+- **Hierarchical RL:** Learning macro-actions (like “go collect wood”) and decomposing into micro-actions (like “turn left”, “move forward”).
+
+**Achievements:**
+- Agents learned to complete long-horizon tasks with significantly fewer environment steps than typical RL benchmarks.
+- Demonstrated the effectiveness of combining **human priors** with **RL fine-tuning**.
+
+---
+
+### 2. MineDojo: A Foundation for Language-Aligned RL Agents
+
+[MineDojo](https://github.com/MineDojo/MineDojo) expands the scope of RL agents in Minecraft by combining **vision-language models, large-scale datasets**, and **flexible APIs** to enable agents to follow open-ended instructions in a diverse, rich Minecraft world.
+
+**Key Contributions:**
+- **Massive Multimodal Dataset:** 700K YouTube videos, 6M Reddit posts, wiki pages, and Minecraft commands — aligned with text, visuals, and code.
+- **Instruction-Following Benchmark:** Agents are tasked with goals like *“Build a nether portal”* or *“Tame a wolf”*, expressed in natural language.
+- **Flexible Simulator Interface:** Extends MineRL to support richer actions, APIs, and modded content.
+
+**RL Approaches in MineDojo:**
+- **Vision-Language Pretraining:** Foundation models like CLIP and BERT used to align perceptions and instructions.
+- **ReAct-style LLM + RL:** Combines LLMs (for reasoning) with RL-trained policies (for execution).
+- **Goal-conditioned RL:** Trains agents to condition their policy on language-based goals and environmental context.
+
+**Achievements:**
+- Created agents capable of generalizing to **previously unseen language commands**.
+- Demonstrated **multimodal learning** by aligning natural language with environment states and actions.
 
 ---
 
