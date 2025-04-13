@@ -27,8 +27,6 @@ Minecraft offers a rich action space for agents. These can be abstracted into:
 
 Designing the action interface involves defining a command vocabulary or API that the agent can use to interact with the environment.
 
-当然可以，以下是对你原先段落 **"Action Policy and Action Planning"** 的扩展版，详细阐述了这两种技术路径的概念、实现方式、优缺点以及对比分析，适合加入文档中作为一个完整小节：
-
 ---
 
 ### Action Policy and Action Planning
@@ -111,10 +109,6 @@ Modern Minecraft agents often **combine both paradigms** to take advantage of th
 - **Feedback Loops:** Planner monitors execution and adapts the plan when conditions change (reactive planning).
 
 For example, in the *MineMCP* system, the LLM-based planner might receive structured observations and user goals, generate a task breakdown, and then issue commands to a policy agent capable of executing atomic actions like walking, turning, or mining blocks.
-
----
-
-如果你愿意，我还可以画一张图表，把 Planner → Policy → Environment 的逻辑关系可视化地表达出来，让文档更直观。需要我加上吗？
 
 ---
 
