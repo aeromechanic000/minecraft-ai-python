@@ -61,87 +61,84 @@ def split_content_and_json(text) :
 
 def get_providers() :
     providers = read_json("model.json") 
-    {
-        "Ollama": {
-            "base_url": "http://127.0.0.1:11434",
-            "models": [
-                "llama3.1",
-                "llama3.2",
-                "llama3.2-vision"
-                "gemma3:4b",
-            ]
-        },
-        "Qwen": {
-            "token": "sk-973f7ab04b274721a906463031eff7c2",
-            "url" : "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions/",
-            "models": [
-                "qwen-turbo",
-                "qwen-plus",
-                "qwen-long",
-                "qwen-max",
-                "qwen-max-0125"
-                "qwen-max-latest",
-                "deepseek-v3",
-                "deepseek-r1",
-            ]
-        },
-        "OpenRouter": {
-            "token": "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",
-            "url" : "https://openrouter.ai/api/v1/chat/completions",
-            "models": [
-                "meta-llama/llama-3.1-8b-instruct:free",
-                "meta-llama/llama-3.3-70b-instruct:free",
-                "meta-llama/llama-3.2-11b-vision-instruct:free",
-                "deepseek/deepseek-chat-v3-0324:free",
-                "deepseek/deepseek-r1:free",
-                "deepseek/deepseek-r1-zero:free",
-                "openai/gpt-4",
-                "openai/gpt-4-32k",
-                "openai/gpt-4-turbo",
-                "openai/gpt-4o-mini",
-                "openai/gpt-4o",
-                "openai/o1-pro",
-                "openai/gpt-4.5-preview",
-                "anthropic/claude-3-opus",
-                "anthropic/claude-3.5-sonnet-20240620",
-                "anthropic/claude-3.5-sonnet",
-                "anthropic/claude-3.5-haiku-20241022",
-                "anthropic/claude-3.7-sonnet",
-            ]
-        },
-        "Doubao" : {
-            "token" : "d2f59aad-7098-4728-aeb0-8762ae23abba",
-            "url" : "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-            "models" : [
-                "doubao-1-5-pro-32k-250115",
-                "doubao-1-5-lite-32k-250115",
-                "doubao-pro-256k-241115",
-                "doubao-1-5-vision-pro-32k-250115",
-                "deepseek-v3-250324",
-                "deepseek-r1-250120"
-            ] 
-        }
-    }
     return providers
 
-def call_llm_api(provider, model, prompt, images = None) :
+def get_llm_result_stream(provider, result) :
+    if provider in ["Ollama", ] :
+        try :
+            for data in result["response"] :
+                decoded = json.loads(data.decode('utf-8'))
+                if decoded["done"] == True  :
+                    break
+                yield decoded.get("response", ""), None
+        except Exception as e :
+            yield None, e
+    elif provider in ["OpenRouter", ] :
+        buffer = ""
+        while True : 
+            chunk = result["response"].read(1024).decode('utf-8')
+            if not chunk :
+                break
+            buffer += chunk
+            while True:
+                try:
+                    line_end = buffer.find('\n')
+                    if line_end == -1:
+                        break
+                    line = buffer[:line_end].strip()
+                    buffer = buffer[line_end + 1:]
+                    if line.startswith('data: '):
+                        data = line[6:]
+                        if data == '[DONE]':
+                            break
+                        try:
+                            data_obj = json.loads(data)
+                            error = data_obj.get("error", None) 
+                            if error is not None : 
+                                yield str(error), None 
+                            else :
+                                content = data_obj["choices"][0]["delta"].get("content", None)
+                                if content is not None :
+                                    yield content, None
+                        except json.JSONDecodeError:
+                            pass
+                except Exception:
+                    break
+    elif provider in ["Doubao", "Qwen", ] :
+        try :
+            for data in result["response"] :
+                for line in data.decode('utf-8').split('\n') :
+                    if line.strip().find("data:") == 0 :
+                        line = line.strip()[5:]
+                        line = line.strip()
+                        if len(line) > 0 :
+                            if line == "[DONE]" : break
+                            decoded = json.loads(line)
+                            choice = decoded["choices"][0]
+                            yield choice["delta"]["content"], None
+        except Exception as e :
+            yield None, e
+    else :
+        yield None, "Invalid provider: %s." % provider
+
+def call_llm_api(provider, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     providers = get_providers()
     result = {"message" : None, "status" : 0, "error" : None}
     if provider == "Ollama" :
         url = providers["Ollama"]["base_url"]
-        result = call_ollama_api(url, model, prompt, images)
+        result = call_ollama_api(url, model, prompt, images, max_tokens, temperature)
     elif provider in ["Doubao", "Qwen", "OpenRouter", ] :
         url = providers[provider]["url"]
         token = providers[provider]["token"]
-        result = call_open_api(url, token, model, prompt, images)
+        result = call_open_api(url, token, model, prompt, images, max_tokens, temperature)
     else :
         result["status"] = 1
         result["error"] = "[%s] Invalid provider: %s" % (inspect.currentframe().f_code.co_name, provider)
     return result
 
-def call_ollama_api(url, model, prompt, images = None) :
+def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     result = {"message" : "", "status" : 0, "error" : None}
-    data = {"model" : model, "prompt" : prompt, "stream" : False}
+    data = {"model" : model, "prompt" : prompt, "max_tokens" : max_tokens, "temperature" : temperature, "stream" : False}
     if images is not None and model in ["llama3.2-vision", "gemma3:4b"] :
         data["images"] = []
         for image in images :
@@ -172,9 +169,9 @@ def call_ollama_api(url, model, prompt, images = None) :
         result["error"] = "[%s] Invalid url." % inspect.currentframe().f_code.co_name
     return result
 
-def call_open_api(url, token, model, prompt, images = None) :
+def call_open_api(url, token, model, prompt, max_tokens = 4096, temperature = 0.9, images = None) :
     result = {"response" : "", "status" : 0, "error" : None}
-    data = {"model" : model, "messages" : [{"role" : "user", "content" : prompt}], "stream" : False}
+    data = {"model" : model, "messages" : [{"role" : "user", "content" : prompt}], "max_tokens" : max_tokens, "temperature" : temperature, "stream" : False}
     if images is not None and model in ["meta-llama/llama-3.2-11b-vision-instruct:free", ] :
         data["images"] = []
         for image in images :
