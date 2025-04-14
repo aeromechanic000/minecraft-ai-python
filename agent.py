@@ -52,24 +52,24 @@ def get_actions(action_names = None) :
             },
             "perform" : "drop",
         },
-        {
-            "name" : "search_block",
-            "desc" : "Find and go to the nearest block of a given type in a given range.",
-            "params" : {
-                "block_name" : {"type" : "BlockName", "desc" : "The block type to go to.", "domain" : get_search_block_names()},
-                "range" : {"type" : "float", "desc" : "The range to search for the block.", "domain" : [32, 512]}
-            },
-            "perform" : "search_block",
-        },
-        {
-            "name" : "search_entity",
-            "desc" : "Find and go to the nearest entity of a given type in a given range.",
-            "params" : {
-                "entity_name" : {"type" : "string", "desc" : "The type of entity to go to.", "domain" : get_search_entity_names()},
-                "range": {"type" : "float", "desc" : "The range to search for the entity.", "domain" : [32, 512]}
-            },
-            "perform" : "search_entity",
-        },
+        # {
+        #     "name" : "search_block",
+        #     "desc" : "Find and go to the nearest block of a given type in a given range.",
+        #     "params" : {
+        #         "block_name" : {"type" : "BlockName", "desc" : "The block type to go to.", "domain" : get_search_block_names()},
+        #         "range" : {"type" : "float", "desc" : "The range to search for the block.", "domain" : [32, 512]}
+        #     },
+        #     "perform" : "search_block",
+        # },
+        # {
+        #     "name" : "search_entity",
+        #     "desc" : "Find and go to the nearest entity of a given type in a given range.",
+        #     "params" : {
+        #         "entity_name" : {"type" : "string", "desc" : "The type of entity to go to.", "domain" : get_search_entity_names()},
+        #         "range": {"type" : "float", "desc" : "The range to search for the entity.", "domain" : [32, 512]}
+        #     },
+        #     "perform" : "search_entity",
+        # },
         {
             "name" : "fight",
             "desc" : 'Attack and kill the nearest entity of a given type.',
@@ -175,7 +175,8 @@ class Agent(object) :
 
             @On(self.bot, 'chat')
             def handleMsg(this, sender, message, *args):
-                if sender is not None :
+                message = message.strip()
+                if sender is not None and all([not message.startswith(msg) for msg in self.mcp_manager.configs.get("ignored_messages", [])]) :
                     if sender == self.bot.username : 
                         if random.random() < self.configs.get("reflection", 0.0) : 
                             self.push_msg({"sender" : sender, "message" : message, "type" : "whisper"})
@@ -308,33 +309,38 @@ Following is an example of the output:
     def get_status(self) : 
         status = "- Agent's Name: %s\n- Status Summary: %s " % (self.bot.username, self.status_summary)
         status = "\n- Agent's Status of Health (from 0 to 20, where 0 for death and 20 for completely healthy): %s" % self.bot.health 
-        status = "\n- Agent's Degree of Hungry (from 0 to 20, where 0 for hungry and 20 for full): %s" % self.bot.food
+        status = "\n- Agent's Degree Of Hungry (from 0 to 20, where 0 for hungry and 20 for full): %s" % self.bot.food
         if self.bot.entity is not None and self.bot.entity.position is not None : 
             pos = self.bot.entity.position
             status = "\n- Agent's Position: x: %s, y: %s, z: %s" % (math.floor(pos.x), math.floor(pos.y), math.floor(pos.z))
-        blocks, blocks_info = self.get_nearest_blocks(block_names = get_status_block_names(), distance = 64, count = 16), ""
+        add_log(title = self.pack_message("Get status."), content = "Got agent primary status: %s" % status, print = False)
+        blocks, blocks_info = self.get_nearest_blocks(block_names = get_status_block_names(), max_distance = 8, count = 8), ""
         for block in blocks : 
             pos = block.position
             if pos is not None :
                 blocks_info += "%s (at x: %s, y: %s, z: %x);" % (block.name,  math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)) 
         if len(blocks_info.strip()) > 0 : 
             status += "\n- Blocks Nearby: %s" % blocks_info
-        entities, entities_info = self.get_nearby_entities(max_distance = 16, count = 8), "" 
+        add_log(title = self.pack_message("Get status."), content = "Got blocks info: %s" % blocks_info, print = False)
+        entities, entities_info = self.get_nearest_entities(max_distance = 8, count = 8), "" 
         for entity in entities : 
             pos = entity.position
             if pos is not None :
                 entities_info += "%s (at x: %s, y: %s, z: %x);" % (entity.name,  math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)) 
         if len(entities_info.strip()) > 0 : 
             status += "\n- Entities Nearby: %s" % entities_info
+        add_log(title = self.pack_message("Get status."), content = "Got entities info: %s" % entities_info, print = False)
         items_in_inventory, items_info = self.get_item_counts(), "" 
         for key, value in items_in_inventory.items() : 
             items_info += "%s %s;" % (value, key)
         if len(items_info.strip()) > 0 : 
             status += "\n- Items in Inventory: %s" % items_info
+        add_log(title = self.pack_message("Get status."), content = "Got inventory items info: %s" % items_info, print = False)
         if len(self.recent_actions) > 0 : 
             recent_actions_desc = self.mcp_manager.get_actions_desc(self.recent_actions)
             if len(recent_actions_desc.strip()) > 0 : 
                 status += "\n- Recent Actions: \n%s" % recent_actions_desc
+            add_log(title = self.pack_message("Get status."), content = "Got recent actions info: %s" % recent_actions_desc, print = False)
         return status
     
     def update_status(self, data) : 
@@ -361,7 +367,7 @@ Following is an example of the output:
     def go_to_position(self, x, y, z, closeness = 0) : 
         try : 
             self.bot.pathfinder.setMovements(pathfinder.Movements(self.bot))
-            self.bot.pathfinder.setGoal(pathfinder.goals.GoalNear(x, y, z, closeness)) 
+            self.bot.pathfinder.goto(pathfinder.goals.GoalNear(x, y, z, closeness)) 
         except Exception as e : 
             add_log(title = self.pack_message("Go to Position."), content = "Exception: %s" % e, label = "warning")
 
@@ -369,7 +375,7 @@ Following is an example of the output:
         range = min(512, range)
         block = self.get_nearest_block(block_name, range)
         if block is None :
-            self.bot.chat("I can't find any any %s in %s blocks." % (get_block_display_name(get_block_id(block_name)), range))
+            self.bot.chat("I can't find any any %s in %s blocks." % (get_block_display_name(get_block_id(block_name)), math.floor(range)))
             add_log(title = self.pack_message("Go to Nearest Block."), content = "Can't find any any %s in %s blocks." % (get_block_display_name(get_block_id(block_name)), range), print = False)
             return False
 
@@ -427,7 +433,7 @@ Following is an example of the output:
         collected, action_num = 0, 0
         while self.act_running == True and collected < num and action_num < self.mcp_manager.configs.get("action_repeat_num_limit", 32) :   
             action_num += 1
-            blocks = self.get_nearest_blocks(block_names = block_names, distance = 512, count = 16)
+            blocks = self.get_nearest_blocks(block_names = block_names, max_distance = 512, count = 16)
             if exclude is not None and isinstance(exclude, list) : 
                 blocks = list(filter(lambda block : all([block.position.x != position.x or block.position.y != position.y or block.position.z != position.z for position in exclude]), blocks))
             movements = pathfinder.Movements(self.bot)
@@ -470,14 +476,17 @@ Following is an example of the output:
         self.bot.chat("I have collected %d %s." % (collected, get_block_display_name(get_block_id(block_name))))
         return collected > 0
     
-    def get_nearest_blocks(self, block_names = None, distance = 64, count = 16) :
+    def get_nearest_blocks(self, block_names = None, max_distance = 64, count = 16) :
+        add_log(self.pack_message("get_nearest_blocks"), content = "mark 1", print = False)
         block_ids = []
         if block_names is None or not isinstance(block_names, list) : 
             block_ids = get_all_block_ids(['air'])
         else : 
             for block_name in block_names :
+                add_log(self.pack_message("get_nearest_blocks"), content = "mark 1.1", print = False)
                 block_ids.append(get_block_id(block_name))
-        positions = self.bot.findBlocks({"matching" : block_ids, "maxDistance" : distance, count : count})
+        add_log(self.pack_message("get_nearest_blocks"), content = "mark 2", print = False)
+        positions = self.bot.findBlocks({"matching" : block_ids, "maxDistance" : max_distance, count : count})
         blocks = []
         for i in range(positions.length) : 
             block = self.bot.blockAt(positions[i])
@@ -486,28 +495,37 @@ Following is an example of the output:
         blocks = sorted(blocks, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distance"]))
         return [block["block"] for block in blocks]
  
-    def get_nearest_block(self, block_name, distance = 64) :
-        blocks = self.get_nearest_blocks(block_names = [block_name], distance = distance, count = 1)
+    def get_nearest_block(self, block_name, max_distance = 64) :
+        blocks = self.get_nearest_blocks(block_names = [block_name], max_distance = max_distance, count = 1)
         if len(blocks) > 0 :
             return blocks[0]
         return None 
    
     def get_nearest_item(self, distance = 1) : 
-        return self.bot.nearestEntity(lambda entity : entity.name == 'item' and self.bot.entity.position.distanceTo(entity.position) < distance)
-    
+        entity = None 
+        try : 
+            entity = self.bot.nearestEntity(lambda entity : entity.name == 'item' and self.bot.entity.position.distanceTo(entity.position) < distance)
+        except Exception as e : 
+            entity = None
+            add_log(title = self.pack_message("get_nearest_item"), content = "Exception: %s" % e, print = False)
+        return entity
+
     def pickup_nearby_items(self) : 
         nearest_item = self.get_nearest_item(distance = 8)
         prev_item = nearest_item
         picked_up = 0
         while nearest_item :
-            self.bot.pathfinder.setMovements(pathfinder.Movements(self.bot))
-            self.bot.pathfinder.goto(pathfinder.goals.GoalFollow(nearest_item, 0.8), True)
-            time.sleep(0.2)
-            prev_item = nearest_item
-            nearest_item = self.get_nearest_item()
-            if prev_item == nearest_item :
-                break
-            picked_up += 1
+            try : 
+                self.bot.pathfinder.setMovements(pathfinder.Movements(self.bot))
+                self.bot.pathfinder.goto(pathfinder.goals.GoalFollow(nearest_item, 0.8), True)
+                time.sleep(0.2)
+                prev_item = nearest_item
+                nearest_item = self.get_nearest_item(distance = 8)
+                if prev_item == nearest_item :
+                    break
+                picked_up += 1
+            except Exception as e : 
+                add_log(title = self.pack_message("pickup_nearby_items"), content = "Exception: %s" % e, label = "warning", print = False)
         self.bot.chat("I picked up %d items" % picked_up)
         return True
 
@@ -582,7 +600,7 @@ Following is an example of the output:
 
         if self.bot.modes.isOn('cheat') and not dont_cheat :
             if self.bot.restrict_to_inventory :
-                block = self.get_an_item_in_inventory(block_tpe)
+                block = self.get_an_item_in_inventory(block_name)
                 if block is None :
                     add_log(title = self.pack_message("Place block."), content = "Cannot place %s. Restricted to the current inventory." % block_name, label = "warning")
                     return False
@@ -766,7 +784,7 @@ Following is an example of the output:
         range = min(512, range)
         block = self.get_nearest_block(block_name, range)
         if block is None :
-            self.bot.chat("I can't find any %s in %s blocks." % (get_block_display_name(get_block_id(block_name)), range))
+            self.bot.chat("I can't find any %s in %s blocks." % (get_block_display_name(get_block_id(block_name)), math.floor(range)))
             add_log(title = self.pack_message("Search Block."), content = "Can't find any %s in %s blocks." % (get_block_display_name(get_block_id(block_name)), range), print = False)
             return False
         self.bot.chat("Found %s at %s. I am going there." % (get_block_display_name(get_block_id(block_name)), block.position))
@@ -778,7 +796,7 @@ Following is an example of the output:
         entity = self.bot.nearestEntity(lambda entity : predicate(entity) and self.bot.entity.position.distanceTo(entity.position) < max_distance)
         return entity
     
-    def get_nearby_entities(self, max_distance = 32, count = 16) : 
+    def get_nearest_entities(self, max_distance = 32, count = 16) : 
         entities = []
         for entity_id in self.bot.entities :
             entity = self.bot.entities[entity_id]
@@ -808,7 +826,7 @@ Following is an example of the output:
                 for z in range(size) : 
                     top = self.bot.blockAt(empty_pos[i].offset(x, 0, z))
                     bottom = self.bot.blockAt(empty_pos[i].offset(x, -1, z))
-                    if top is None or top.name != "air" or bottomm is None or bottom.drops.length < 1 or not bottom.diggable :
+                    if top is None or top.name != "air" or bottom is None or bottom.drops.length < 1 or not bottom.diggable :
                         empty = False
                         break
                 if empty is None :
@@ -820,24 +838,26 @@ Following is an example of the output:
     def search_entity(self, entity_name, range = 64, min_distance = 2) :
         entity = self.get_nearest_entity_where(lambda entity : entity.name == entity_name, range)
         if entity is None :
-            self.bot.chat("I can't find any %s in %s blocks." % (get_entity_display_name(get_entity_id(entity_name)), range))
+            self.bot.chat("I can't find any %s in %s blocks." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(range)))
             add_log(title = self.pack_message("Search Entity."), content = "Can't find any %s in %s blocks." % (get_entity_display_name(get_entity_id(entity_name)), range), print = False)
             return False
         distance = self.bot.entity.position.distanceTo(entity.position)
-        self.bot.chat("Found %s %s blocks away. I am going there." % (get_entity_display_name(get_entity_id(entity_name)), distance))
+        self.bot.chat("Found %s %s blocks away. I am going there." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(distance)))
         add_log(title = self.pack_message("Search Entity."), content = "Found %s at %s." % (get_entity_display_name(get_entity_id(entity_name)), entity.position), print = False)
         self.go_to_position(entity.position.x, entity.position.y, entity.position.z, min_distance)
         return True
     
     def fight(self, entity_name, kill = True) :
-        self.bot.modes.pause('cowardice')
-        if entity_name in ["drowned", "cod", "salmon", "tropical_fish", "squid"] :
-            self.bot.modes.pause('self_preservation') 
-        entities = list(filter(lambda entity: entity.name == entity_name, self.get_nearby_entities(24)))
+        if self.bot.modes is not None : 
+            self.bot.modes.pause('cowardice')
+            if entity_name in ["drowned", "cod", "salmon", "tropical_fish", "squid"] :
+                self.bot.modes.pause('self_preservation') 
+        entities = list(filter(lambda entity: entity.name == entity_name, self.get_nearest_entities(32)))
         entity = entities[0] if len(entities) > 0 else None 
         if entity is not None :
             return self.attack_entity(entity, kill)
         else :
+            self.bot.chat("I can't find any %s to attack." % get_entity_display_name(get_entity_id(entity_name)))
             add_log(title = self.pack_message("Fight."), content = "Could not find any %s to attack." % get_entity_display_name(get_entity_id(entity_name)), print = False)
             return False
     
@@ -851,7 +871,7 @@ Following is an example of the output:
             return True
         else :
             self.bot.pvp.attack(entity)
-            while entity in self.get_nearby_entities(24) :
+            while entity in self.get_nearest_entities(24) :
                 time.sleep(1.0)
                 if self.bot.interrupt_code :
                     self.bot.pvp.stop()
