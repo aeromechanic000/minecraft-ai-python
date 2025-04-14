@@ -1,8 +1,6 @@
 
 # Actions of Agent
 
-## 07 - Available Actions
-
 In MineMCP, **Available Actions** represent the high-level behaviors that the agent can perform in the Minecraft world. These actions form the bridge between the **LLM's reasoning and decision-making** and the **actual execution** via Minecraft bot APIs (provided by [Mineflayer](https://github.com/PrismarineJS/mineflayer)) and custom skill modules.
 
 ### Purpose
