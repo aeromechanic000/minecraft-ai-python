@@ -1,0 +1,2 @@
+
+# Plan in MineMCP
