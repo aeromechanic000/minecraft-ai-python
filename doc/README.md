@@ -1,6 +1,10 @@
 
 # MineMCP Documentation
 
+Unlike traditional approaches that generate complete action sequences upfront, MineMCP implements a dynamic, contextual action prediction paradigm. 
+
+![MineMCP: (task, status, actions) to (status, action) Prediction]([https://s2.loli.net/2025/04/14/Klg1qAMUsFQhJYC.png](https://s2.loli.net/2025/04/14/3tc19ONwHuSYIgQ.png))
+
 ## Contents
 
 [01 - Overview of MineMCP](https://github.com/aeromechanic000/MineMCP/blob/main/doc/01-overview.md)
