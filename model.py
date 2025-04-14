@@ -126,11 +126,11 @@ def call_llm_api(provider, model, prompt, images = None, max_tokens = 4096, temp
     result = {"message" : None, "status" : 0, "error" : None}
     if provider == "Ollama" :
         url = providers["Ollama"]["base_url"]
-        result = call_ollama_api(url, model, prompt, images, max_tokens, temperature)
+        result = call_ollama_api(url, model, prompt, max_tokens, temperature, images)
     elif provider in ["Doubao", "Qwen", "OpenRouter", ] :
         url = providers[provider]["url"]
         token = providers[provider]["token"]
-        result = call_open_api(url, token, model, prompt, images, max_tokens, temperature)
+        result = call_open_api(url, token, model, prompt, max_tokens, temperature, images)
     else :
         result["status"] = 1
         result["error"] = "[%s] Invalid provider: %s" % (inspect.currentframe().f_code.co_name, provider)
@@ -171,7 +171,13 @@ def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temper
 
 def call_open_api(url, token, model, prompt, max_tokens = 4096, temperature = 0.9, images = None) :
     result = {"response" : "", "status" : 0, "error" : None}
-    data = {"model" : model, "messages" : [{"role" : "user", "content" : prompt}], "max_tokens" : max_tokens, "temperature" : temperature, "stream" : False}
+    data = {
+        "model" : model, 
+        "messages" : [{"role" : "user", "content" : prompt}],  
+        "max_tokens" : max_tokens, 
+        "temperature" : temperature,
+        "stream" : False,
+    }
     if images is not None and model in ["meta-llama/llama-3.2-11b-vision-instruct:free", ] :
         data["images"] = []
         for image in images :

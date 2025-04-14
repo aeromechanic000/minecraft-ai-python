@@ -219,7 +219,7 @@ class Agent(object) :
                         self.messages.clear()
                         add_log(title = self.pack_message("Process messages."), content = str(messages), label = "execute")
                         prompt = self.build_plan_prompt(messages)
-                        llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt)
+                        llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt, max_tokens = self.configs.get("max_tokens", 4096))
                         if llm_result["status"] > 0 :
                             add_log(title = self.pack_message("Error in calling LLM to get plan: %s" % llm_result["error"]))
                         else :
@@ -281,6 +281,7 @@ You are a useful AI assistant in planning the actions for Minecraft bot. Given t
 
 ## Output Format
 The result should be formatted in **JSON** dictionary and enclosed in **triple backticks (` ``` ` )**  without labels like 'json', 'css', or 'data'.
+- **Do not** generate redundant content other than the result in JSON format.
 - **Do not** use triple backticks anywhere else in your answer.
 - The JSON must include the following keys and values accordingly :
     - 'status' : An updated version of the status summary of the agent. If no update is needed, set value to null.
@@ -306,6 +307,8 @@ Following is an example of the output:
     
     def get_status(self) : 
         status = "- Agent's Name: %s\n- Status Summary: %s " % (self.bot.username, self.status_summary)
+        status = "\n- Agent's Status of Health (from 0 to 20, where 0 for death and 20 for completely healthy): %s" % self.bot.health 
+        status = "\n- Agent's Degree of Hungry (from 0 to 20, where 0 for hungry and 20 for full): %s" % self.bot.food
         if self.bot.entity is not None and self.bot.entity.position is not None : 
             pos = self.bot.entity.position
             status = "\n- Agent's Position: x: %s, y: %s, z: %s" % (math.floor(pos.x), math.floor(pos.y), math.floor(pos.z))
@@ -316,7 +319,7 @@ Following is an example of the output:
                 blocks_info += "%s (at x: %s, y: %s, z: %x);" % (block.name,  math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)) 
         if len(blocks_info.strip()) > 0 : 
             status += "\n- Blocks Nearby: %s" % blocks_info
-        entities, entities_info = self.get_nearby_entities(32), "" 
+        entities, entities_info = self.get_nearby_entities(max_distance = 16, count = 8), "" 
         for entity in entities : 
             pos = entity.position
             if pos is not None :
@@ -775,7 +778,7 @@ Following is an example of the output:
         entity = self.bot.nearestEntity(lambda entity : predicate(entity) and self.bot.entity.position.distanceTo(entity.position) < max_distance)
         return entity
     
-    def get_nearby_entities(self, max_distance = 32) : 
+    def get_nearby_entities(self, max_distance = 32, count = 16) : 
         entities = []
         for entity_id in self.bot.entities :
             entity = self.bot.entities[entity_id]
@@ -788,6 +791,8 @@ Following is an example of the output:
                     add_log(title = self.pack_message("Get Nearby Entities."), content = "Get invalid entities.", print = False)
             except Exception as e : 
                 add_log(title = self.pack_message("Get Nearby Entities."), content = "Exception: %s" % e, print = False)
+            if len(entities) >= count : 
+                break
         entities = sorted(entities, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distance"]))
         return [entity["entity"] for entity in entities]
 

@@ -78,6 +78,13 @@ def get_collect_block_names() :
 def get_search_block_names() : 
     return get_block_names()
 
+def get_status_block_names() : 
+    return [
+        "oak_log", "dark_oak_log", "acacia_log",   
+        "spruce_log", "birch_log", "jungle_log", "cherry_log", 
+        "stone", "lava", "sand", "coal", "diamond", "iron", "gold", 
+    ]
+
 def get_block_id(block_name) :
     block_id = None
     block = mcdata.blocksByName[block_name]
@@ -110,7 +117,7 @@ def get_item_names() :
 def get_equip_item_names() : 
     return get_item_names() 
 
-def get_discard_item_names() : 
+def get_drop_item_names() : 
     return get_item_names() 
 
 def get_search_item_names() : 
