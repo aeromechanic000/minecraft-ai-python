@@ -4,7 +4,7 @@ MineMCP is a Python framework for controlling Minecraft bots using various LLMs.
 
 🦾 MineMCP is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
 
-<a href="https://discord.gg/zAxFt9cZs8" target="_blank"><img src="https://s2.loli.net/2025/04/08/BOwDWH3XiyTAZgb.png" alt="Official Discord Server" width="180" height="30"></a>
+<a href="https://discord.gg/RKjspnTBmb" target="_blank"><img src="https://s2.loli.net/2025/04/08/BOwDWH3XiyTAZgb.png" alt="Official Discord Server" width="180" height="30"></a>
 
 **Screenshots of Playing Minecraft with MineMCP**
 
