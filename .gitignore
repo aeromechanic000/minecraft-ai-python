@@ -2,6 +2,8 @@
 ._*
 node_modules/*
 logs/*
+model.json
+./run.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

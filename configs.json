@@ -8,13 +8,6 @@
             "username" : "Dobson",
             "personality" : "A smart Minecraft agent",
             "provider" : "Doubao", 
-            "model" : "doubao-1-5-pro-32k-250115",
-            "range_goal" : 1 
-        },
-        {
-            "username" : "Dusty",
-            "personality" : "A smart Minecraft agent",
-            "provider" : "Doubao", 
             "model" : "deepseek-v3-250324",
             "range_goal" : 1 
         }

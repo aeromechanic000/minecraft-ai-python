@@ -23,7 +23,7 @@
         ]
     },
     "OpenRouter": {
-        "token": "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",
+        "token": "",
         "url" : "https://openrouter.ai/api/v1/chat/completions",
         "models": [
             "meta-llama/llama-3.1-8b-instruct:free",
@@ -47,7 +47,7 @@
         ]
     },
     "Doubao" : {
-        "token" : "d2f59aad-7098-4728-aeb0-8762ae23abba",
+        "token" : "",
         "url" : "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
         "models" : [
             "doubao-1-5-pro-32k-250115",

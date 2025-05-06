@@ -75,6 +75,9 @@ def get_all_blocks(ignore = None) :
 def get_collect_block_names() : 
     return get_block_names()
 
+def get_place_block_names() : 
+    return get_block_names()
+
 def get_search_block_names() : 
     return get_block_names()
 
