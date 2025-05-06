@@ -1,5 +1,7 @@
 # MineMCP: LLM-Driven Minecraft Agents in Python 🤖
 
+*Notice* This is a side-project related to Minecraft-AI (https://github.com/aeromechanic000/minecraft-ai). Its objective is to offer a more accessible development method for Minecraft AI characters. Currently, it is in the early development phase. As a result, the AI characters in this side-project are not as capable as those in the original Minecraft-AI. If you wish to have the experience of interacting with more intelligent AI characters, we highly recommend using Minecraft-AI.
+
 MineMCP is a Python framework for controlling Minecraft bots using various LLMs. It builds upon the excellent foundation laid by the <a href="https://github.com/kolbytn/mindcraft">MINDcraft</a> project, which offers an efficient system for enabling LLM agents to interact with Minecraft environments using MCP-style command-to-action mappings. Many ideas and design choices from MINDcraft have been incorporated into MineMCP. In essence, MineMCP can be seen as the Pythonic counterpart to MINDcraft (At lease, we hope so 😉).
 
 🦾 MineMCP is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
