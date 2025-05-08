@@ -47,7 +47,7 @@ class bcolors:
     PINK = '\033[38;5;205m'     # Pink
     GRAY = '\033[90m'           # Gray
     PURPLE = '\033[35m'         # Purple
-    YELLOW = '\033[33m'         # Yellow
+    YELLOW = '\033[93m'         # Yellow
     WHITE = '\033[97m'          # White
     LIGHT_BLUE = '\033[94;1m'   # Light Blue
     MAGENTA = '\033[35;1m'      # Magenta

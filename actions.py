@@ -640,7 +640,7 @@ def generated_action(agent):
     ...
 ```
 
-## Parameter Details:
+### Parameter Details:
 
 * The `agent` parameter is the AI character instance in the Minecraft world.
 * You can use `agent.bot` to access the underlying **mineflayer bot API** to interact with the environment.
@@ -670,6 +670,37 @@ Follow these rules strictly:
    The function should focus on a **single logical step** within a task. If the task is complex, implement just the next actionable step and allow the planner to generate the follow-up in future iterations.
 5. **Avoid external dependencies or side effects**:
    Use only the APIs and resources available through `agent` and `agent.bot`. Do not import external libraries or access files, network resources, or system-level features.
+
+## Availabel API for `agent.bot`
+The `agent.bot` object provides a wide range of APIs that allow the bot to perceive and interact with the Minecraft world. These APIs are wrappers around the `mineflayer` client functions. Some of the most commonly used methods include:
+
+### Movement & Navigation
+  * `bot.pathfinder.setGoal(goal)` : Move toward a specified goal (e.g., position, entity).
+  * `bot.lookAt(position)` : Turn the bot's view toward a specific position.
+  * `bot.jump()` : Make the bot jump.
+
+### Inventory & Items
+  * `bot.inventory.items()` : Get a list of current items.
+  * `bot.equip(item, destination)` : Equip an item to a destination slot (e.g., hand, off-hand).
+  * `bot.toss(itemType, metadata, count)` : Drop items.
+  * `bot.craft(recipe, count, craftingTable)` : Craft items if recipe and materials are available.
+  * `bot.mineBlock(block)` : Mine a block.
+
+### Block & Environment Interaction
+  * `bot.placeBlock(referenceBlock, faceVector)` : Place a block relative to another.
+  * `bot.dig(block)` : Dig/break a block.
+  * `bot.findBlock(options)` : Find a block nearby matching certain criteria.
+  * `bot.chat(message)` : Send a message to the in-game chat.
+
+### Entity Interaction
+  * `bot.entities` : Dictionary of all known entities (players, mobs, etc.).
+  * `bot.attack(entity)` : Attack a nearby entity.
+  * `bot.useOn(entity)` : Use the current item on an entity (e.g., feed, shear).
+
+### Sensing & Utility
+  * `bot.findEntity(options)` : Find nearest matching entity.
+  * `bot.nearestPlayer()` : Get the nearest player entity.
+  * `bot.entity.position` : Get bot's current position.
 
 ## Output Format
 The result must be formatted as a **JSON dictionary** and enclosed in **triple backticks (` ``` ` )**, without any other text.

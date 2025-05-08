@@ -61,7 +61,7 @@ class Memory(object) :
                 add_log(title = self.agent.pack_message("Error in calling LLM: %s" % llm_result["error"]), label = "warning")
             else :
                 _, data = split_content_and_json(llm_result["message"])
-                add_log(title = self.pack_message("Got data."), content = str(data), label = "memory")
+                add_log(title = self.agent.pack_message("Got data."), content = str(data), label = "memory")
                 summary = data.get("summary", None)
                 if summary is not None : 
                     self.summary = str(summary)
