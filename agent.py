@@ -87,13 +87,14 @@ class Agent(object) :
                 while instruction is not None and len(instruction.strip()) > 0 :
                     add_log(title = self.pack_message("Get instruction"), content = instruction, label = "action")
                     prompt = self.build_prompt(instruction) 
+                    add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
                     llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt, max_tokens = self.configs.get("max_tokens", 4096))
-                    add_log(title = self.pack_message("Get LLM response"), content = str(llm_result), label = "action")
+                    add_log(title = self.pack_message("Get LLM response"), content = str(llm_result), label = "action", print = False)
                     if llm_result["status"] > 0 :
                         add_log(title = self.pack_message("Error in calling LLM: %s" % llm_result["error"]), label = "warning")
                     else :
                         _, data = split_content_and_json(llm_result["message"])
-                        add_log(title = self.pack_message("Got data."), content = str(data), label = "action")
+                        add_log(title = self.pack_message("Got data."), content = json.dumps(data, indent = 4), label = "action")
                         status_summary = data.get("status", None)
                         if status_summary is not None : 
                             self.status_summary = status_summary
@@ -115,7 +116,7 @@ class Agent(object) :
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
 
     def build_prompt(self, instruction) :     
-        return '''
+        prompt = '''
 You are an AI assistant helping to plan the next action for a Minecraft bot. Based on the current status, memory, instruction, and the list of available actions, your task is to determine what the bot should do next. 
 
 You must output: 
@@ -141,6 +142,18 @@ The selected action's parameters must follow the types and domains described und
 ## Available Actions 
 %s
 
+''' % (self.get_status_info(), self.memory.get(), instruction, self.manager.get_actions_info())
+        if self.manager.configs.get("insecure_coding_rounds", 0) > 0 : 
+            prompt += '''
+## Additional Instruction for Using `new_action`:
+Among the available actions, always prioritize using predefined actions to accomplish the current task. Only use the new_action when it is clearly necessary — i.e., when none of the existing predefined actions are sufficient to fulfill the task. If you decide to use new_action, you must provide a clear, specific, and complete description of the task under the `task` parameter. This description should include:
+    - What the bot is expected to do,
+    - Any contextual details needed for proper execution,
+    - The expected result or behavior,
+    - Relevant constraints, if any.
+This is essential because the new_action will result in generating a custom Python function (generated_action(agent)) that uses agent.bot to control the bot. Poorly specified tasks will cause the bot to fail or behave unpredictably.
+'''
+        prompt += '''
 ## Output Format
 The result should be formatted in **JSON** dictionary and enclosed in **triple backticks (` ``` ` )**  without labels like 'json', 'css', or 'data'.
 - **Do not** generate redundant content other than the result in JSON format.
@@ -163,7 +176,8 @@ Following is an example of the output:
         }
     }  
 }
-''' % (self.get_status_info(), self.memory.get(), instruction, self.manager.get_actions_info())
+'''
+        return prompt
 
     def get_mc_time(self) : 
         hrs, mins = 0, 0
@@ -186,7 +200,7 @@ Following is an example of the output:
         for key, value in items_in_inventory.items() : 
             items_info += "%s %s;" % (value, key)
         if len(items_info.strip()) > 0 : 
-            add_log(title = self.pack_message("Get inventory items info."), content = items_info)
+            add_log(title = self.pack_message("Get inventory items info."), content = items_info, print = False)
             status += "\n- Items in Inventory: %s" % items_info
         try : 
             blocks, blocks_info = get_nearest_blocks(self, block_names = get_block_names(), max_distance = 16, count = 8), ""
@@ -195,7 +209,7 @@ Following is an example of the output:
                 if pos is not None :
                     blocks_info += "%s (at x: %s, y: %s, z: %s);" % (block.name,  math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)) 
             if len(blocks_info.strip()) > 0 : 
-                add_log(title = self.pack_message("Get nearby blocks info."), content = blocks_info)
+                add_log(title = self.pack_message("Get nearby blocks info."), content = blocks_info, print = False)
                 status += "\n- Blocks Nearby: %s" % blocks_info
             entities, entities_info = get_nearest_entities(self, max_distance = 16, count = 8), "" 
             for entity in entities : 
@@ -203,7 +217,7 @@ Following is an example of the output:
                 if pos is not None :
                     entities_info += "%s (at x: %s, y: %s, z: %s);" % (entity.name,  math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)) 
             if len(entities_info.strip()) > 0 : 
-                add_log(title = self.pack_message("Get nearby entities info."), content = entities_info)
+                add_log(title = self.pack_message("Get nearby entities info."), content = entities_info, print = False)
                 status += "\n- Entities Nearby: %s" % entities_info
         except Exception as e : 
             add_log(title = self.pack_message("Exception when get information of nearby blocks and entities."), content = "Exception: %s" % e, label = "warning")

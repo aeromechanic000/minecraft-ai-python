@@ -26,8 +26,8 @@ class Manager(object) :
 
     def get_actions(self) : 
         ignore_actions = self.configs.get("ignore_actions", [])
-        if self.configs.get("insecure_coding", False) == False and "new_action" not in ignore_actions :
-            ignore_actions.append(ignore_actions)
+        if self.configs.get("insecure_coding_rounds", 0) < 1 and "new_action" not in ignore_actions :
+            ignore_actions.append("new_action")
         actions = []
         for action in get_primary_actions() : 
             if action["name"] not in ignore_actions : 

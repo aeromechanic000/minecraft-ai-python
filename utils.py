@@ -34,7 +34,7 @@ def read_json(filepath, init_cls = dict) :
 def write_json(data, filepath) :
     result = False
     with open(filepath, "w") as f :
-        json.dump(data, f, sort_keys = True, indent = 4)
+        json.dump(data, f, indent = 4)
         result = True
     return result
 

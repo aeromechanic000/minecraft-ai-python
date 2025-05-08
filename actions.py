@@ -716,13 +716,14 @@ The result must be formatted as a **JSON dictionary** and enclosed in **triple b
 }
 ```
 ''' % task 
+    add_log(title = agent.pack_message("Built prompt."), content = prompt, label = "coding", print = False)
     llm_result = call_llm_api(agent.configs["provider"], agent.configs["model"], prompt, max_tokens = agent.configs.get("max_tokens", 4096))
-    add_log(title = agent.pack_message("Get LLM response:"), content = str(llm_result), label = "coding")
+    add_log(title = agent.pack_message("Get LLM response:"), content = str(llm_result), label = "coding", print = False)
     if llm_result["status"] > 0 :
         add_log(title = agent.pack_message("Error in calling LLM: %s" % llm_result["error"]), label = "warning")
     else :
         _, data = split_content_and_json(llm_result["message"])
-        add_log(title = agent.pack_message("Get data:"), content = str(data), label = "coding")
+        add_log(title = agent.pack_message("Get data:"), content = json.dumps(data, indent = 4), label = "coding")
         code = data.get("code", None) 
         try :
             exec(code)

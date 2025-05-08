@@ -55,13 +55,14 @@ class Memory(object) :
         if len(self.records) > 0 and (self.last_summarize_record_time is None or mc_time_later(self.records[-1]["time"], self.last_summarize_record_time)) : 
             add_log(title = self.agent.pack_message("Summarize memory."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
             prompt = self.build_prompt()
+            add_log(title = self.agent.pack_message("Built prompt."), content = prompt, label = "memory", print = False)
             llm_result = call_llm_api(self.agent.configs["provider"], self.agent.configs["model"], prompt, max_tokens = self.agent.configs.get("max_tokens", 4096))
-            add_log(title = self.agent.pack_message("Get LLM response:"), content = str(llm_result), label = "memory")
+            add_log(title = self.agent.pack_message("Get LLM response:"), content = str(llm_result), label = "memory", print = False)
             if llm_result["status"] > 0 :
                 add_log(title = self.agent.pack_message("Error in calling LLM: %s" % llm_result["error"]), label = "warning")
             else :
                 _, data = split_content_and_json(llm_result["message"])
-                add_log(title = self.agent.pack_message("Got data."), content = str(data), label = "memory")
+                add_log(title = self.agent.pack_message("Got data."), content = json.dumps(data, indent = 4), label = "memory")
                 summary = data.get("summary", None)
                 if summary is not None : 
                     self.summary = str(summary)
@@ -93,10 +94,13 @@ Given:
 2. An old memory summary that contains previously known information. 
 
 Please:
-1. Generate a new summary that retains important past information and incorporates new relevant updates from the history;
-2. Extract the next instruction for the bot to follow, based on the most recent relevant message or event.
-
-If no action is required, set the instruction to an empty string ("") to avoid wasting time on meaningless tasks. If the current task is complex, break it down and provide a reasonable next step as the instruction. Include enough context and hints in the instruction to allow the bot to resume or continue the task correctly later.
+1. Generate a new summary that preserves important past information while integrating new, relevant updates from the recent history. Pay special attention to the following:
+    - If there are any task requirements — including newly assigned tasks from other players or ongoing tasks that have not yet been completed — be sure to include them in the summary. This helps the bot stay aware of its current objectives and prevents forgetting unfinished work.
+2. Identify the next instruction the bot should follow based on the latest relevant message or event. Consider the following:
+    - The bot can perform actions or engage in conversation. If someone is asking a question or initiating a chat, generate an instruction that prepares the bot to respond appropriately. You may include helpful context from memory to make the response more informative or natural.
+    - If the player requests an action, specify it clearly in the instruction. If the bot has a valid reason to decline the request, make sure the instruction includes a brief explanation for the rejection, so the bot can communicate it.
+    - Leave the instruction empty only if all known tasks are completed and the bot is not currently in a conversation.
+    - If the current task is complex, break it down and provide a reasonable next step as the instruction. Include enough context and hints in the instruction to allow the bot to resume or continue the task correctly later.
 
 ## History Records
 %s
@@ -110,7 +114,7 @@ The result should be formatted in **JSON** dictionary and enclosed in **triple b
 - **Do not** use triple backticks anywhere else in your answer.
 - The JSON must include the following keys and values accordingly :
     - 'summary' : The new summary of the memory, about 500 words. 
-    - 'instruction' : The instruction for the bot. If there is no tasks to do, make sure set it to empty string.
+    - 'instruction' : The instruction for the bot. If no action is required, set the instruction to an empty string ("") to avoid wasting time on meaningless tasks.
 
 Following is an example of the output: 
 ```
@@ -118,5 +122,5 @@ Following is an example of the output:
     "summary" : "I got a message from the player to ask me to collect some woods, and I collected 20 ore logs.",  
     "instruction" : "try to collect more ore logs.",
 }
-''' % (self.get_records_info(10, True), self.summary)
+''' % (self.get_records_info(20), self.summary)
         return prompt
