@@ -22,7 +22,7 @@ def get_datetime() :
 def get_datetime_stamp() :
     return datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
-def get_random_filename() :
+def get_random_label() :
     return "%s_%s" % (get_datetime_stamp(), "%03d" % random.randint(0, 1000))
 
 def read_json(filepath, init_cls = dict) :
@@ -39,12 +39,9 @@ def write_json(data, filepath) :
     return result
 
 class bcolors:
-    HEADER = '\033[95m'
-    FAIL = '\033[91m'
-    WARNING = '\033[93m'
+    GREEN = '\033[92m'          # Green
     BLUE = '\033[94m'           # Blue
     CYAN = '\033[96m'           # Cyan
-    GREEN = '\033[92m'          # Green
     ORANGE = '\033[38;5;208m'   # Orange
     RED = '\033[31m'            # Red
     PINK = '\033[38;5;205m'     # Pink
@@ -62,28 +59,28 @@ class bcolors:
 def print_msg(title, content = "", label = "text") :
     head_tag = ""
     end_tag = ""
-    if label == "header" :
+    if label == "memory" :
         head_tag = bcolors.ORANGE
         end_tag = bcolors.ENDC
         title = "[%s] %s" % (get_datetime(), title)
-    if label == "success" :
-        head_tag = bcolors.GREEN
-        end_tag = bcolors.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
-    if label == "execute" :
+    elif label == "action" :
         head_tag = bcolors.CYAN
         end_tag = bcolors.ENDC
         title = "[%s] %s" % (get_datetime(), title)
-    if label == "request" :
-        head_tag = bcolors.BLUE
+    elif label == "coding" :
+        head_tag = bcolors.PURPLE
+        end_tag = bcolors.ENDC
+        title = "[%s] %s" % (get_datetime(), title)
+    elif label == "success" :
+        head_tag = bcolors.GREEN
         end_tag = bcolors.ENDC
         title = "[%s] %s" % (get_datetime(), title)
     elif label == "warning" :
-        head_tag = bcolors.WARNING
+        head_tag = bcolors.YELLOW
         end_tag = bcolors.ENDC
         title = "[%s] %s" % (get_datetime(), title)
     elif label == "error" :
-        head_tag = bcolors.FAIL
+        head_tag = bcolors.RED
         end_tag = bcolors.ENDC
         title = "[%s] %s" % (get_datetime(), title)
     print(head_tag + title + end_tag)
@@ -105,3 +102,14 @@ def get_random_vector(dist):
     x = math.cos(angle) * dist
     y = math.sin(angle) * dist
     return [x, y]
+
+def sizeof(js_mapping) : 
+    length = 0
+    for key in js_mapping : 
+        length += 1
+    return length
+
+def mc_time_later(t1, t2) : 
+    if t2[0] >= t1[0] and t2[1] >= t1[1] and t2[2] >= t2[2] : 
+        return False
+    return True

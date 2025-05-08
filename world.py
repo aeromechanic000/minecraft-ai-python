@@ -13,6 +13,7 @@ prismarine_items = require('prismarine-item')
 collect_block = require('mineflayer-collectblock')
 auto_eat = require('mineflayer-auto-eat')
 armor_manager = require('mineflayer-armor-manager')
+vec3 = require('vec3')
 
 mcdata = minecraft_data("1.21.1")
 prismarine_item = prismarine_items("1.21.1")
@@ -27,12 +28,6 @@ def get_entity_names() :
         # "cow", "donkey", "dragon_fireball"
         # "creeper", "dragon_fireball", "elder_guardian",
     ] 
-
-def get_search_entity_names() : 
-    return get_entity_names()
-
-def get_fight_entity_names() : 
-    return get_entity_names()
 
 def get_entity_id(entity_name) :
     entity_id = None
@@ -55,38 +50,25 @@ def get_entity_display_name(entity_id) :
         entity_display_name = entity.displayName
     return entity_display_name 
 
-def get_block_names() : 
-    return [
-        "oak_log", "dark_oak_log", "acacia_log",   
-        "spruce_log", "birch_log", "jungle_log", "cherry_log", 
-        "dirt", "stone", "lava", "sand", 
-        "coal", "diamond", "iron", "gold", 
-    ]
+def get_block_names(ignore = None) : 
+    names = [block.name for block in get_all_blocks(ignore)]
+    return names
 
 def get_all_blocks(ignore = None) :
     if ignore is None or not isinstance(ignore, list) :
         ignore = []
-    for block in mcdata.blocks.values() :
+    blocks = []
+    for key in mcdata.blocks :
+        block = mcdata.blocks[key]
         if block.name not in ignore :
             blocks.append(block)
-    blocks = []
     return blocks
 
-def get_collect_block_names() : 
-    return get_block_names()
+def get_empty_block_names() : 
+    return ["air", "water", "lava", "grass", "short_grass", "tall_grass", "snow", "dead_bush", "fern"] 
 
-def get_place_block_names() : 
-    return get_block_names()
-
-def get_search_block_names() : 
-    return get_block_names()
-
-def get_status_block_names() : 
-    return [
-        "oak_log", "dark_oak_log", "acacia_log",   
-        "spruce_log", "birch_log", "jungle_log", "cherry_log", 
-        "stone", "lava", "sand", "coal", "diamond", "iron", "gold", 
-    ]
+def get_cant_build_off_block_names() : 
+    return ["bed", "_table", "furnace", "chest"] 
 
 def get_block_id(block_name) :
     block_id = None
@@ -116,18 +98,6 @@ def get_item_names() :
         "wooden_axe", "stone_axe", "iron_axe",
         "wooden_pickaxe", "stone_pickaxe", "iron_pickaxe",
     ]
-
-def get_equip_item_names() : 
-    return get_item_names() 
-
-def get_drop_item_names() : 
-    return get_item_names() 
-
-def get_search_item_names() : 
-    return get_item_names() 
-
-def get_craft_item_names() : 
-    return get_item_names() 
 
 def get_item_id(item_name) :
     item_id = None

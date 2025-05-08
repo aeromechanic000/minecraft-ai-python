@@ -130,6 +130,8 @@ def call_llm_api(provider, model, prompt, images = None, max_tokens = 4096, temp
     elif provider in ["Doubao", "Qwen", "OpenRouter", ] :
         url = providers[provider]["url"]
         token = providers[provider]["token"]
+        if len(token.strip()) < 1 : 
+            token = os.environ.get("%s_API_KEY" % provider.upper())
         result = call_open_api(url, token, model, prompt, max_tokens, temperature, images)
     else :
         result["status"] = 1

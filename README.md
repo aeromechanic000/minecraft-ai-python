@@ -1,30 +1,30 @@
-# MineMCP: LLM-Driven Minecraft Agents in Python 🤖
+# <img src="https://s2.loli.net/2025/04/18/RWaFJkY4gSDLViy.png" alt="Minecraft AI" width="36" height="36"> Minecraft AI - Python
 
 *Notice* This is a side-project related to Minecraft-AI (https://github.com/aeromechanic000/minecraft-ai). Its objective is to offer a more accessible development method for Minecraft AI characters. Currently, it is in the early development phase. As a result, the AI characters in this side-project are not as capable as those in the original Minecraft-AI. If you wish to have the experience of interacting with more intelligent AI characters, we highly recommend using Minecraft-AI.
 
-MineMCP is a Python framework for controlling Minecraft bots using various LLMs. It builds upon the excellent foundation laid by the <a href="https://github.com/kolbytn/mindcraft">MINDcraft</a> project, which offers an efficient system for enabling LLM agents to interact with Minecraft environments using MCP-style command-to-action mappings. Many ideas and design choices from MINDcraft have been incorporated into MineMCP. In essence, MineMCP can be seen as the Pythonic counterpart to MINDcraft (At lease, we hope so 😉).
+Minecraft AI-Python is a Python framework for controlling Minecraft bots using various LLMs. It builds upon the excellent foundation laid by the <a href="https://github.com/kolbytn/mindcraft">MINDcraft</a> project, which offers an efficient system for enabling LLM agents to interact with Minecraft environments using MCP-style command-to-action mappings. Many ideas and design choices from MINDcraft have been incorporated into Minecraft AI-Python. In essence, Minecraft AI-Python can be seen as the Pythonic counterpart to MINDcraft (At lease, we hope so 😉).
 
-🦾 MineMCP is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
+🦾 Minecraft AI-Python is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
 
-<a href="https://discord.gg/RKjspnTBmb" target="_blank"><img src="https://s2.loli.net/2025/04/08/BOwDWH3XiyTAZgb.png" alt="Official Discord Server" width="180" height="30"></a>
+<a href="https://discord.gg/RKjspnTBmb" target="_blank"><img src="https://s2.loli.net/2025/04/18/CEjdFuZYA4pKsQD.png" alt="Official Discord Server" width="180" height="36"></a>
 
-**Screenshots of Playing Minecraft with MineMCP**
+**Screenshots of Playing Minecraft with Minecraft AI-Python**
 
-<img src="https://s2.loli.net/2025/04/09/CKwbHroZaj4xJSU.gif" alt="MineMCP: LLM-Driven Minecraft Agents in Python" width="800" height="450">
+<img src="https://s2.loli.net/2025/04/09/CKwbHroZaj4xJSU.gif" alt="Minecraft AI-Python: LLM-Driven Minecraft Agents in Python" width="800" height="450">
 
 **The Introduction Video**
 
-<a href="https://www.youtube.com/watch?v=9phN6OWPmKg" target="_blank"><img src="https://s2.loli.net/2025/04/09/Kk35BEwvVlUuq9C.png" alt="MineMCP: LLM-Driven Minecraft Agents in Python" width="800" height="450"></a>
+<a href="https://www.youtube.com/watch?v=9phN6OWPmKg" target="_blank"><img src="https://s2.loli.net/2025/04/09/Kk35BEwvVlUuq9C.png" alt="Minecraft AI-Python: LLM-Driven Minecraft Agents in Python" width="800" height="450"></a>
 
 # Quick Start 🚀
-0. You need Minecraft Java Edition 1.21.1 for running MineMCP. 
+0. You need Minecraft Java Edition 1.21.1 for running Minecraft AI-Python. 
 1. Clone the repo.
 ```
-git clone https://github.com/aeromechanic000/MineMCP.git
+git clone https://github.com/aeromechanic000/minecraft-ai-python.git
 ```
 2. Enter the root directory.
 ```
-cd MineMCP
+cd Minecraft AI-Python
 ```
 3. Install the required node modules.
 ```
@@ -32,11 +32,11 @@ npm install
 ```
 5. Create a conda environment with python3.10.
 ```
-conda create -n minemcp python=3.10
+conda create -n Minecraft AI-Python python=3.10
 ```
 6. Activate the created conda environment. 
 ```
-conda activate minemcp
+conda activate Minecraft AI-Python
 ```
 7. Install the required python pacages. 
 ```
@@ -55,14 +55,14 @@ python main.py path/to/another/configs
 
 # Documentation
 
-More detailed information of MineMCP can be found in the [Documentation](https://github.com/aeromechanic000/MineMCP/tree/main/doc).
+More detailed information of Minecraft AI-Python can be found in the [Documentation](https://github.com/aeromechanic000/Minecraft AI-Python/tree/main/doc).
 
 # Citation
 ```
-@misc{minemcp2025,
-    Author = {MineMCP},
-    Title = {MineMCP: LLM-Driven Minecraft Agents in Python},
+@misc{minecraft_ai_2025,
+    Author = {Minecraft AI},
+    Title = {Minecraft AI: Toward Embodied Turing Test Through AI Characters},
     Year = {2025},
-    url={https://github.com/aeromechanic000/MineMCP}
+    url={https://github.com/aeromechanic000/minecraft-ai}
 }
 ```

@@ -1,7 +1,7 @@
 
 import os, sys
 
-from minemcp import * 
+from manager import * 
 from utils import *
 
 if __name__ == "__main__":
@@ -22,5 +22,5 @@ if __name__ == "__main__":
     add_log("Using configs: %s" % configs_path)
 
     configs = read_json(configs_path)
-    mcp = MineMCP(configs)
+    mcp = Manager(configs)
     mcp.start()

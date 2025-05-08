@@ -1,10 +1,12 @@
 
 ._*
 node_modules/*
-logs/*
-model.json
-./run.sh
 node_modules
+logs/*
+bots/*
+model.json
+.fslckout
+run.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
