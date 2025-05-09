@@ -8,7 +8,7 @@ class Memory(object) :
         self.agent = agent
         self.records = []
         self.last_summarize_record_time = None
-        self.summary, self.instruction = "", ""
+        self.summary, self.latest_message_record = "", None 
         self.bot_path = os.path.join("bots", self.agent.configs["username"])
         if not os.path.isdir(self.bot_path) : 
             os.makedirs(self.bot_path)  
@@ -32,27 +32,27 @@ class Memory(object) :
     
     def get(self) : 
         self.summarize()
-        info = self.get_records_info(6)
+        info = self.get_records_info(limit = 6)
         info += "\n\n Here is a summary of earlier memory: %s" % self.summary
         return info
     
     def get_records_info(self, limit, exclude_summary = False) :
         info_list = []
-        for i in range(-1, - min(len(self.records), 6) - 1, -1) :
+        for i in range(-1, - min(len(self.records), limit) - 1, -1) :
             record = self.records[i]
             if exclude_summary == True and self.last_summarize_record_time is not None and not mc_time_later(record["time"], self.last_summarize_record_time) :
                 break
             if record["type"] == "message" : 
                 info_list.append("[%s-th day %s:%s] Got message from \"%s\": \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
             if record["type"] == "status" : 
-                if record["data"]["status"].strip().startswith("@") : 
+                if record["data"]["sender"] == self.agent.bot.username : 
                     info_list.append("[%s-th day %s:%s] I send a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["status"]))  
                 else :
-                    info_list.append("[%s-th day %s:%s] I report a status: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["status"]))  
+                    info_list.append("[%s-th day %s:%s] \"%s\" sends a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["status"]))  
         return "\n".join(info_list)
 
-    def summarize(self) : 
-        if len(self.records) > 0 and (self.last_summarize_record_time is None or mc_time_later(self.records[-1]["time"], self.last_summarize_record_time)) : 
+    def summarize(self, force = False) : 
+        if force == True or self.get_out_of_summary_message() is not None :
             add_log(title = self.agent.pack_message("Summarize memory."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
             prompt = self.build_prompt()
             add_log(title = self.agent.pack_message("Built prompt."), content = prompt, label = "memory", print = False)
@@ -71,19 +71,26 @@ class Memory(object) :
                 instruction = data.get("instruction", None)
                 self.instruction = str(instruction) if instruction is not None else ""
                 self.save()
-        else : 
-            add_log(title = self.agent.pack_message("Memory summary is up to date."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
 
     def update(self, record) : 
         record["time"] = self.agent.get_mc_time()
+        if record["type"] == "message" : 
+            self.latest_message_record = record
         self.records.append(record)
     
-    def get_instruction(self) : 
-        self.summarize()
-        return self.instruction
-    
-    def reset_instruction(self) : 
-        self.instruction = ""
+    def get_out_of_summary_message(self) : 
+        message = None
+        for i in range(-1, -len(self.records) - 1, -1) :
+            record = self.records[i]
+            if record["type"] == "status" : 
+                continue
+            if record["type"] == "message" : 
+                if self.last_summarize_record_time is None or mc_time_later(record["time"], self.last_summarize_record_time) :
+                    message = record.get("data", None)
+                break
+        if message is not None :
+            self.summarize(force = True)
+        return message
     
     def build_prompt(self) : 
         prompt = '''
@@ -101,6 +108,9 @@ Please:
     - If the player requests an action, specify it clearly in the instruction. If the bot has a valid reason to decline the request, make sure the instruction includes a brief explanation for the rejection, so the bot can communicate it.
     - Leave the instruction empty only if all known tasks are completed and the bot is not currently in a conversation.
     - If the current task is complex, break it down and provide a reasonable next step as the instruction. Include enough context and hints in the instruction to allow the bot to resume or continue the task correctly later.
+
+## Bot's Status
+%s
 
 ## History Records
 %s
@@ -122,5 +132,12 @@ Following is an example of the output:
     "summary" : "I got a message from the player to ask me to collect some woods, and I collected 20 ore logs.",  
     "instruction" : "try to collect more ore logs.",
 }
-''' % (self.get_records_info(20), self.summary)
+''' % (self.get_status_info(), self.get_records_info(20), self.summary)
         return prompt
+    
+    def get_status_info(self) :
+        status = "- Bot's Name: %s" % self.agent.bot.username
+        status += "\n- Bot's Profile: %s" % self.agent.configs.get("profile", "A smart Minecraft AI character.")
+        status += "\n- Bot's Status of Health (from 0 to 20, where 0 for death and 20 for completely healthy): %s" % self.agent.bot.health 
+        status += "\n- Bot's Degree Of Hungry (from 0 to 20, where 0 for hungry and 20 for full): %s" % self.agent.bot.food
+    

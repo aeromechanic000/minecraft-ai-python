@@ -59,7 +59,11 @@ class bcolors:
 def print_msg(title, content = "", label = "text") :
     head_tag = ""
     end_tag = ""
-    if label == "memory" :
+    if label == "manager" :
+        head_tag = bcolors.LIGHT_BLUE
+        end_tag = bcolors.ENDC
+        title = "[%s] %s" % (get_datetime(), title)
+    elif label == "memory" :
         head_tag = bcolors.ORANGE
         end_tag = bcolors.ENDC
         title = "[%s] %s" % (get_datetime(), title)
@@ -110,6 +114,6 @@ def sizeof(js_mapping) :
     return length
 
 def mc_time_later(t1, t2) : 
-    if t2[0] >= t1[0] and t2[1] >= t1[1] and t2[2] >= t2[2] : 
+    if t2[0] >= t1[0] and t2[1] >= t1[1] and t2[2] >= t1[2] and t2[3] >= t1[3] : 
         return False
     return True

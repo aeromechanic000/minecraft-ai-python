@@ -30,6 +30,11 @@ cd Minecraft AI-Python
 ```
 npm install 
 ```
+4. To add a patch, you need to at first modify the local files of the module (consider files in `patches` as hints), and run 
+```
+npx patch-package [package-name]
+```
+Then when you do `npm install`, the patches will be applied.
 5. Create a conda environment with python3.10.
 ```
 conda create -n Minecraft AI-Python python=3.10

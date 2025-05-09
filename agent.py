@@ -7,8 +7,9 @@ from actions import *
 
 class Agent(object) : 
     def __init__(self, configs, manager) :
-        add_log(title = "Agent Created.", content = "Agent has been created with configs: %s" % configs, label = "header")
+        add_log(title = "Agent Created.", content = "Configs: %s" % configs, label = "success")
         self.configs, self.manager = configs, manager
+        self.self_driven_thinking_timer = self.manager.configs.get("self_driven_thinking_timer", None)
         self.status_summary = ""
         self.working_process = None
         bot_configs = self.configs.copy()
@@ -28,6 +29,21 @@ class Agent(object) :
         @On(self.bot, 'resourcePack')
         def handle_resource_pack(*args) :
             self.bot.acceptResourcePack()
+
+        @On(self.bot, 'time')
+        def handle_time(*args) :
+            if self.self_driven_thinking_timer is not None : 
+                if self.self_driven_thinking_timer < 1 : 
+                    self.self_driven_thinking_timer = self.manager.configs.get("self_driven_thinking_timer", None)
+                    self_driven_thinking(self)
+                else :
+                    self.self_driven_thinking_timer -= 1
+        
+        @On(self.bot, "login")
+        def handle_login(*args) :
+            skin_path = os.path.join("./skins", self.configs.get("skin", {}).get("file", None))
+            if os.path.isfile(skin_path) :
+                self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), skin_path))
 
         @On(self.bot, 'spawn')
         def handle_spawn(*args) :
@@ -63,16 +79,15 @@ class Agent(object) :
                 record = {}
 
                 if username is not None and all([not message.startswith(msg) for msg in ignore_messages + self.manager.configs.get("ignore_messages", [])]) : 
-                    if username == self.bot.username :
-                        if message.strip().startswith("[[Self-Driven Thinking]]") :
-                            record = {"type" : "message", "data" : {"sender" : username, "content" : message.strip()[len("[[Self-Driven Thinking]]"):]}}
-                        else : 
-                            self.memory.update({"type" : "status", "data" : {"status" : message}})
-                    elif sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message : 
+                    if sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message : 
                         record = {"type" : "message", "data" : {"sender" : username, "content" : message}}
+                    elif username == self.bot.username and message.strip().startswith("[[Self-Driven Thinking]]") :
+                        record = {"type" : "message", "data" : {"sender" : username, "content" : message.strip()[len("[[Self-Driven Thinking]]"):]}}
+                    else :
+                        self.memory.update({"type" : "status", "data" : {"sender" : username, "status" : message}})
                 
                 if len(record) < 1 : 
-                    add_log(title = self.pack_message("Ignore message."), content = "sender: %s; message: %s" % (username, message), label = "warning")
+                    add_log(title = self.pack_message("Ignore message."), content = "sender: %s; message: %s" % (username, message), label = "warning", print = False)
                     return 
 
                 add_log(title = self.pack_message("Get message."), content = "sender: %s; message: %s" % (username, message), label = "action")
@@ -82,11 +97,9 @@ class Agent(object) :
             def work() : 
                 current_working_process = get_random_label()
                 self.working_process = current_working_process 
-                instruction = self.memory.get_instruction()
-                self.memory.reset_instruction()
-                while instruction is not None and len(instruction.strip()) > 0 :
-                    add_log(title = self.pack_message("Get instruction"), content = instruction, label = "action")
-                    prompt = self.build_prompt(instruction) 
+                message = self.memory.get_out_of_summary_message()
+                while message is not None :
+                    prompt = self.build_prompt(message) 
                     add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
                     llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt, max_tokens = self.configs.get("max_tokens", 4096))
                     add_log(title = self.pack_message("Get LLM response"), content = str(llm_result), label = "action", print = False)
@@ -103,9 +116,8 @@ class Agent(object) :
                             add_log(title = self.pack_message("Perfom action."), content = str(action), label = "action")
                             action["params"]["agent"] = self
                             run_action(action["perform"], action["params"])
-                    instruction = self.memory.get_instruction()
-                    self.memory.reset_instruction()
-                    if instruction is not None and self.working_process != current_working_process :
+                    message = self.memory.get_out_of_summary_message()
+                    if message is not None and self.working_process != current_working_process :
                         break
                 self.working_process = None
 
@@ -115,7 +127,7 @@ class Agent(object) :
                 except Exception as e : 
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
 
-    def build_prompt(self, instruction) :     
+    def build_prompt(self, message) :     
         prompt = '''
 You are an AI assistant helping to plan the next action for a Minecraft bot. Based on the current status, memory, instruction, and the list of available actions, your task is to determine what the bot should do next. 
 
@@ -126,23 +138,24 @@ You must output:
 Important Guidelines:
 1. Only update the status if new context or progress has occurred. Otherwise, set it to null.
 2. Only generate an action if one is needed. Otherwise, set action to null.
-3. When choosing an action, prioritize non-chat actions to make sure the task progresses. Only use chat if it is the only meaningful or required response.
+3. When choosing an action, prioritize non-chat actions to make sure the task progresses. 
+4. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
 
 The selected action's parameters must follow the types and domains described under 'Available Actions'.
 
-## Current Status
+## Bot's Status
 %s
 
-## Memory
+## Bot's Memory
 %s
 
-## Instruction
+## Lastest Message
 %s
 
 ## Available Actions 
 %s
 
-''' % (self.get_status_info(), self.memory.get(), instruction, self.manager.get_actions_info())
+''' % (self.get_status_info(), self.memory.get(), "\"%s\" said: \"%s\"" % (message["sender"], message["content"]), self.manager.get_actions_info())
         if self.manager.configs.get("insecure_coding_rounds", 0) > 0 : 
             prompt += '''
 ## Additional Instruction for Using `new_action`:
@@ -184,17 +197,19 @@ Following is an example of the output:
         t = self.bot.time.timeOfDay 
         hrs = math.floor(t // 10000)
         mins = math.floor(min(59, (t % 10000) // (10000 / 60)))
-        return [self.bot.time.day, hrs, mins]
+        secs = math.floor(min(59, (t % 10000) % (10000 / 60)))
+        return [self.bot.time.day, hrs, mins, secs]
 
     def get_status_info(self) : 
-        status = "- Agent's Name: %s\n" % self.bot.username
+        status = "- Bot's Name: %s" % self.bot.username
+        status += "\n- Bot's Profile: %s" % self.configs.get("profile", "A smart Minecraft AI character.")
         if len(self.status_summary.strip()) > 0 :
-            status += "- Status Summary: %s\n" % self.status_summary
-        status += "\n- Agent's Status of Health (from 0 to 20, where 0 for death and 20 for completely healthy): %s" % self.bot.health 
-        status += "\n- Agent's Degree Of Hungry (from 0 to 20, where 0 for hungry and 20 for full): %s" % self.bot.food
+            status += "\n- Status Summary: %s" % self.status_summary
+        status += "\n- Bot's Status of Health (from 0 to 20, where 0 for death and 20 for completely healthy): %s" % self.bot.health 
+        status += "\n- Bot's Degree Of Hungry (from 0 to 20, where 0 for hungry and 20 for full): %s" % self.bot.food
         pos = get_entity_position(self.bot.entity)
         if pos is not None : 
-            status += "\n- Agent's Position: x: %s, y: %s, z: %s" % (math.floor(pos.x), math.floor(pos.y), math.floor(pos.z))
+            status += "\n- Bot's Position: x: %s, y: %s, z: %s" % (math.floor(pos.x), math.floor(pos.y), math.floor(pos.z))
         add_log(title = self.pack_message("Get primary status."), content = status, print = False)
         items_in_inventory, items_info = get_item_counts(self), "" 
         for key, value in items_in_inventory.items() : 

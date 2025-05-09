@@ -627,7 +627,7 @@ You are a helpful AI agent working in a Minecraft environment. Your task is to w
 ### Task 
 %s
 
-Given the above task description, you should:
+Given the above task descriptionription, you should:
 
 1. Write a new Python function named `generated_action` to complete the task.
 2. The function must be valid, executable, and focused on achieving the goal clearly and efficiently.
@@ -725,13 +725,32 @@ The result must be formatted as a **JSON dictionary** and enclosed in **triple b
         _, data = split_content_and_json(llm_result["message"])
         add_log(title = agent.pack_message("Get data:"), content = json.dumps(data, indent = 4), label = "coding")
         code = data.get("code", None) 
+        logs = [] 
         try :
-            exec(code)
-            result = generated_action(agent)
+            error = validate_generated_code(code)
+            if error is not None and len(error.strip()) > 0 : 
+                logs.append("The generated code is not valid: %s" % error)
+            else :
+                exec(code)
+                result = generated_action(agent)
+                code_dir = os.path("generated_actions")
+                if os.path.isdir(code_dir) :
+                    code_path = os.path.join(code_dir, "%s.json" % get_random_label()) 
+                    write_json({"task" : task, "code" : code}, code_path)
         except Exception as e :
             add_log(title = agent.pack_message("Exception happen when executing generated action."), content = "Exception: %s" % e, label = "warning")
 
-def validate_param(value, _type, domain) :
+def validate_generated_code(code) : 
+    error = None
+    for risk_code in ["subprocess", "process", "exec"] :
+        if risk_code in code : 
+            error += "Found risking code: %s;" % risk_code 
+    return error
+
+def self_driven_thinking(agent) : 
+    pass
+
+def validate_param(value, _type) :
     valid_value = None
     if value is not None :
         try : 
@@ -741,10 +760,8 @@ def validate_param(value, _type, domain) :
                 valid_value = bool(value)
             elif _type == "float" : 
                 valid_value = float(value)
-                valid_value = min(max(domain[0], valid_value), domain[1])
             elif _type == "int" : 
                 valid_value = int(value)
-                valid_value = min(max(domain[0], valid_value), domain[1])
         except : 
             valid_value = None
     return valid_value
@@ -753,81 +770,80 @@ def get_primary_actions() :
     return [
         {
             "name" : "chat", 
-            "desc": "Chat with others.",
+            "description": "Chat with others.",
             "params": {
-                "player_name": {"type" : "string", "desc" : "The name of the player to mention in the chat.", "domain" : "either the name of any player in the game, or 'all' to mention all the players"},
-                "message": {"type" : "string", "desc" : "The message to send.", "domain" : "any valid text"},
+                "player_name": {"type" : "string", "description" : "The name of the player to mention in the chat."},
+                "message": {"type" : "string", "description" : "The message to send."},
             },
             "perform" : chat, 
         },
         {
             "name" : "go_to_player", 
-            "desc": "Go to the given player.",
+            "description": "Go to the given player.",
             "params": {
-                "player_name": {"type" : "string", "desc" : "The name of the player to go to.", "domain" : "any valid value"},
-                "closeness": {"type" : "float", "desc" : "How close to get to the player. If no special reason, closeness should be set to 1.", "domain" : [0, math.inf]},
+                "player_name": {"type" : "string", "description" : "The name of the player to go to."},
+                "closeness": {"type" : "float", "description" : "How close to get to the player. If no special reason, closeness should be set to 1."},
             },
             "perform" : go_to_player, 
         },
         {   
             "name" : "collect_blocks",
-            "desc" : "Collect the nearest blocks of a given type.",
+            "description" : "Collect the nearest blocks of a given type.",
             "params" : {
-                "block_name" : {"type": "BlockName", "desc": "The block name to collect.", "domain" : "The block names in Minecraft."},
-                "num" : {"type": "int", "desc" : "The number of blocks to collect.", "domain" : [1, 16]},
+                "block_name" : {"type": "BlockName", "description": "The block name to collect."},
+                "num" : {"type": "int", "description" : "The number of blocks to collect."},
             },
             "perform" : collect_blocks, 
         },
         {
             "name" : "equip_item",
-            "desc" : "Equip the given item.",
+            "description" : "Equip the given item.",
             "params" : {
-                "item_name": { "type" : "ItemName", "desc" : "The name of the item to equip.", "domain" : "The item names in Minecraft."}, 
+                "item_name": { "type" : "ItemName", "description" : "The name of the item to equip."}, 
             },
             "perform" : equip_item,
         },
         {
             "name" : "drop_item",
-            "desc" : "Drop the given item from the inventory.",
+            "description" : "Drop the given item from the inventory.",
             "params" : {
-                "item_name" : {"type" : "ItemName", "desc" : "The name of the item to drop.", "domain" : "The item names in Minecraft."},
-                "num" : {"type" : "int", "desc" : "The number of items to drop.", "domain" : [1, 16]}
+                "item_name" : {"type" : "ItemName", "description" : "The name of the item to drop."},
+                "num" : {"type" : "int", "description" : "The number of items to drop."}
             },
             "perform" : drop_item,
         },
         {
             "name" : "fight",
-            "desc" : 'Attack or kill the nearest entity of a given type.',
+            "description" : 'Attack or kill the nearest entity of a given type.',
             "params": {
-                "entity_name": { "type" : "string", "desc" : "The type of entity to attack.", "domain" : "The entity names in Minecraft."},
-                "kill" : {"type" : "bool", "desc" : "Indicate if you want to kill the entity", "domain" : [True, False]},
+                "entity_name": { "type" : "string", "description" : "The type of entity to attack."},
+                "kill" : {"type" : "bool", "description" : "Indicate if you want to kill the entity"},
             },
             "perform" : fight,
         },
         {
             "name" : "craft",
-            "desc" : "Craft the given recipe a given number of times.",
+            "description" : "Craft the given recipe a given number of times.",
             "params" : {
-                "recipe_name": {"type" : "ItemName", "desc" : "The name of the output item to craft.", "domain" : "The item names in Minecraft."},
-                "num" : {"type" : "int", "desc" : "The number of times to craft the recipe. This is NOT the number of output items, as it may craft many more items depending on the recipe.", "domain" : [1, 4]},
+                "recipe_name": {"type" : "ItemName", "description" : "The name of the output item to craft."},
+                "num" : {"type" : "int", "description" : "The number of times to craft the recipe. This is NOT the number of output items, as it may craft many more items depending on the recipe."},
             },
             "perform" : craft,
         },
         {
             "name": "new_action",
-            "desc": "Dynamically write and execute a Python function to perform a task that cannot be achieved by existing predefined actions. This is a fallback mechanism for handling novel or complex tasks.",
+            "description": "Dynamically write and execute a Python function to perform a task that cannot be achieved by existing predefined actions. This is a fallback mechanism for handling novel or complex tasks.",
             "params": {
                 "task": {
                     "type": "string", 
-                    "desc": "A clear and complete description of the task to be implemented in Python. The description should specify what needs to be done, any relevant context, and expected behavior.",
-                    "domain": "A natural language description of the custom task.",
+                    "description": "A clear and complete description of the task to be implemented in Python. The description should specify what needs to be done, any relevant context, and expected behavior."
                 },
             },
             "perform" : new_action,
         },
         # {
         #     "name" : "test", 
-        #     "desc": "Do some test.",
+        #     "description": "Do some test.",
         #     "params": {},
         #     "perform" : test, 
         # },
