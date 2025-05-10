@@ -8,7 +8,7 @@ class Memory(object) :
         self.agent = agent
         self.records = []
         self.last_summarize_record_time = None
-        self.summary, self.latest_message_record = "", None 
+        self.summary, self.longterm_thinking = "", ""
         self.bot_path = os.path.join("bots", self.agent.configs["username"])
         if not os.path.isdir(self.bot_path) : 
             os.makedirs(self.bot_path)  
@@ -22,11 +22,11 @@ class Memory(object) :
         if os.path.isfile(self.memory_path) :
             data = read_json(self.memory_path)
             self.summary = data.get("summary", "")
-            self.instruction = data.get("instruction", "")
+            self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
 
     def save(self) : 
         if os.path.isdir(os.path.dirname(self.memory_path)) : 
-            write_json({"summary" : self.summary}, self.memory_path) 
+            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking}, self.memory_path) 
         if os.path.isdir(os.path.dirname(self.history_path)) : 
             write_json({"records" : self.records}, self.history_path) 
     
@@ -64,19 +64,20 @@ class Memory(object) :
             else :
                 _, data = split_content_and_json(llm_result["message"])
                 add_log(title = self.agent.pack_message("Got data."), content = json.dumps(data, indent = 4), label = "memory")
-                summary = data.get("summary", None)
+                summary, longterm_thinking = data.get("summary", None), data.get("longterm_thinking", None)
                 if summary is not None : 
                     self.summary = str(summary)
                     if len(self.records) > 0 :
                         self.last_summarize_record_time = self.records[-1]["time"]
-                instruction = data.get("instruction", None)
-                self.instruction = str(instruction) if instruction is not None else ""
-                self.save()
+                    add_log(title = self.agent.pack_message("Memory summary updated."), content = self.summary, label = "memory")
+                if longterm_thinking is not None: 
+                    self.longterm_thinking = str(longterm_thinking)
+                    add_log(title = self.agent.pack_message("Long-term thinking updated."), content = self.longterm_thinking, label = "memory")
+                if summary is not None or longterm_thinking is not None :
+                    self.save()
 
     def update(self, record) : 
         record["time"] = self.agent.get_mc_time()
-        if record["type"] == "message" : 
-            self.latest_message_record = record
         self.records.append(record)
     
     def get_out_of_summary_message(self) : 
@@ -93,20 +94,21 @@ class Memory(object) :
     
     def build_prompt(self) : 
         prompt = '''
-You are an AI assistant helping to summarize memory records for a Minecraft bot. Your goal is to produce a new summary that captures key facts and useful context for future planning, and to extract the next instruction for the bot to follow. 
+You are an AI assistant helping to summarize memory records for a Minecraft bot. Your goal is to produce a new summary that captures key facts and useful context for the bot's future planning. When generating the memory summary, you should also consider the personality profile and the long-term thinkings of the bot.
 
 Given: 
 1. A list of history records, representing recent events and messages (including user input and in-game events); 
 2. An old memory summary that contains previously known information. 
+3. The profile of the bot.
+4. The long-term thinking of the bot.
 
 Please:
 1. Generate a new summary that preserves important past information while integrating new, relevant updates from the recent history. Pay special attention to the following:
     - If there are any task requirements — including newly assigned tasks from other players or ongoing tasks that have not yet been completed — be sure to include them in the summary. This helps the bot stay aware of its current objectives and prevents forgetting unfinished work.
-2. Identify the next instruction the bot should follow based on the latest relevant message or event. Consider the following:
-    - The bot can perform actions or engage in conversation. If someone is asking a question or initiating a chat, generate an instruction that prepares the bot to respond appropriately. You may include helpful context from memory to make the response more informative or natural.
-    - If the player requests an action, specify it clearly in the instruction. If the bot has a valid reason to decline the request, make sure the instruction includes a brief explanation for the rejection, so the bot can communicate it.
-    - Leave the instruction empty only if all known tasks are completed and the bot is not currently in a conversation.
-    - If the current task is complex, break it down and provide a reasonable next step as the instruction. Include enough context and hints in the instruction to allow the bot to resume or continue the task correctly later.
+2. Generate a update of the longterm thinking, if necessary. Pay attention to the following: 
+    - Only make changes if significant events have occurred that meaningfully impact the agent's behavior patterns or values;
+    - The long-term thinking should remain relatively stable over time and reflect high-level intentions (e.g., a preference for collaboration, caution, or efficiency);
+    - Avoid overfitting to short-term fluctuations or isolated incidents. 
 
 ## Bot's Status
 %s
@@ -117,13 +119,19 @@ Please:
 ## Old Summary
 %s
 
+## Bot's Profile
+%s
+
+## Long-term Thinking
+%s
+
 ## Output Format
 The result should be formatted in **JSON** dictionary and enclosed in **triple backticks (` ``` ` )**  without labels like 'json', 'css', or 'data'.
 - **Do not** generate redundant content other than the result in JSON format.
 - **Do not** use triple backticks anywhere else in your answer.
 - The JSON must include the following keys and values accordingly :
     - 'summary' : The new summary of the memory, about 500 words. 
-    - 'instruction' : The instruction for the bot. If no action is required, set the instruction to an empty string ("") to avoid wasting time on meaningless tasks.
+    - 'longterm_thinking' : The long-term thinking of the bot, about 200 words; If not necessary to update the long-term thinking, leave the value to null.
 
 Following is an example of the output: 
 ```
@@ -131,7 +139,7 @@ Following is an example of the output:
     "summary" : "I got a message from the player to ask me to collect some woods, and I collected 20 ore logs.",  
     "instruction" : "try to collect more ore logs.",
 }
-''' % (self.get_status_info(), self.get_records_info(20), self.summary)
+''' % (self.get_status_info(), self.get_records_info(20), self.agent.configs.get("profile", "A smart minecraft AI"), self.longterm_thinking, self.summary)
         return prompt
     
     def get_status_info(self) :
