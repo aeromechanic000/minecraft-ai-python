@@ -63,76 +63,21 @@ def get_providers() :
     providers = read_json("model.json") 
     return providers
 
-def get_llm_result_stream(provider, result) :
-    if provider in ["Ollama", ] :
-        try :
-            for data in result["response"] :
-                decoded = json.loads(data.decode('utf-8'))
-                if decoded["done"] == True  :
-                    break
-                yield decoded.get("response", ""), None
-        except Exception as e :
-            yield None, e
-    elif provider in ["OpenRouter", ] :
-        buffer = ""
-        while True : 
-            chunk = result["response"].read(1024).decode('utf-8')
-            if not chunk :
-                break
-            buffer += chunk
-            while True:
-                try:
-                    line_end = buffer.find('\n')
-                    if line_end == -1:
-                        break
-                    line = buffer[:line_end].strip()
-                    buffer = buffer[line_end + 1:]
-                    if line.startswith('data: '):
-                        data = line[6:]
-                        if data == '[DONE]':
-                            break
-                        try:
-                            data_obj = json.loads(data)
-                            error = data_obj.get("error", None) 
-                            if error is not None : 
-                                yield str(error), None 
-                            else :
-                                content = data_obj["choices"][0]["delta"].get("content", None)
-                                if content is not None :
-                                    yield content, None
-                        except json.JSONDecodeError:
-                            pass
-                except Exception:
-                    break
-    elif provider in ["Doubao", "Qwen", ] :
-        try :
-            for data in result["response"] :
-                for line in data.decode('utf-8').split('\n') :
-                    if line.strip().find("data:") == 0 :
-                        line = line.strip()[5:]
-                        line = line.strip()
-                        if len(line) > 0 :
-                            if line == "[DONE]" : break
-                            decoded = json.loads(line)
-                            choice = decoded["choices"][0]
-                            yield choice["delta"]["content"], None
-        except Exception as e :
-            yield None, e
-    else :
-        yield None, "Invalid provider: %s." % provider
-
 def call_llm_api(provider, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     providers = get_providers()
     result = {"message" : None, "status" : 0, "error" : None}
     if provider == "Ollama" :
-        url = providers["Ollama"]["base_url"]
-        result = call_ollama_api(url, model, prompt, max_tokens, temperature, images)
+        url = providers["Ollama"]["url"]
+        result = call_ollama_api(url, model, prompt, images, max_tokens, temperature)
+    elif provider == "Pollinations" :
+        url = providers["Pollinations"]["url"]
+        result = call_pollinations_api(url, model, prompt, images, max_tokens, temperature)
     elif provider in ["Doubao", "Qwen", "OpenRouter", ] :
         url = providers[provider]["url"]
         token = providers[provider]["token"]
         if len(token.strip()) < 1 : 
             token = os.environ.get("%s_API_KEY" % provider.upper())
-        result = call_open_api(url, token, model, prompt, max_tokens, temperature, images)
+        result = call_open_api(url, token, model, prompt, images, max_tokens, temperature)
     else :
         result["status"] = 1
         result["error"] = "[%s] Invalid provider: %s" % (inspect.currentframe().f_code.co_name, provider)
@@ -141,12 +86,11 @@ def call_llm_api(provider, model, prompt, images = None, max_tokens = 4096, temp
 def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     result = {"message" : "", "status" : 0, "error" : None}
     data = {"model" : model, "prompt" : prompt, "max_tokens" : max_tokens, "temperature" : temperature, "stream" : False}
-    if images is not None and model in ["llama3.2-vision", "gemma3:4b"] :
+    if images is not None :
         data["images"] = []
         for image in images :
             data["images"].append(encode_file_to_base64(image))
     if len(url.strip()) > 0 :
-        url = os.path.join(url, "api/generate")
         try :
             request = urllib.request.Request(
                 url,
@@ -171,7 +115,47 @@ def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temper
         result["error"] = "[%s] Invalid url." % inspect.currentframe().f_code.co_name
     return result
 
-def call_open_api(url, token, model, prompt, max_tokens = 4096, temperature = 0.9, images = None) :
+def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+    result = {"response" : "", "status" : 0, "error" : None}
+    data = {
+        "messages" : [{"role" : "user", "content" : prompt}], 
+        "model" : model, 
+        "max_tokens" : max_tokens, 
+        "temperature" : temperature,
+        "stream" : False,
+        "private" : True,
+    }
+
+    if images is not None :
+        data["images"] = []
+        for image in images :
+            data["images"].append(encode_file_to_base64(image))
+    try :
+        request = urllib.request.Request(
+            url,
+            headers = {
+                "Content-Type" : "application/json",
+                "User-Agent" : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                "Accept" : "application/json, text/plain, */*",
+            },
+            data = json.dumps(data).encode("utf-8"),
+        )
+        response = urllib.request.urlopen(request)
+        if response.getcode() == 200 :
+            response_data = response.read().decode('utf-8')
+            result["message"] = response_data
+        else :
+            result["status"] = 1
+            result["error"] = "[%s] Reponse error: %s" % (
+                inspect.currentframe().f_code.co_name,
+                response.getcode(),
+            )
+    except Exception as e :
+        result["status"] = 2
+        result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
+    return result
+
+def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     result = {"response" : "", "status" : 0, "error" : None}
     data = {
         "model" : model, 
@@ -180,7 +164,7 @@ def call_open_api(url, token, model, prompt, max_tokens = 4096, temperature = 0.
         "temperature" : temperature,
         "stream" : False,
     }
-    if images is not None and model in ["meta-llama/llama-3.2-11b-vision-instruct:free", ] :
+    if images is not None :
         data["images"] = []
         for image in images :
             data["images"].append(encode_file_to_base64(image))

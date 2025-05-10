@@ -44,11 +44,12 @@ class Memory(object) :
                 break
             if record["type"] == "message" : 
                 info_list.append("[%s-th day %s:%s] Got message from \"%s\": \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
-            if record["type"] == "status" : 
-                if record["data"]["sender"] == self.agent.bot.username : 
-                    info_list.append("[%s-th day %s:%s] I send a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["status"]))  
-                else :
-                    info_list.append("[%s-th day %s:%s] \"%s\" sends a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["status"]))  
+            elif record["type"] == "reflection" : 
+                info_list.append("[%s-th day %s:%s] Got reflection from myself : \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["content"]))  
+            elif record["type"] == "report" : 
+                info_list.append("[%s-th day %s:%s] I send a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["content"]))  
+            elif record["type"] == "status" :
+                info_list.append("[%s-th day %s:%s] \"%s\" sends a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
         return "\n".join(info_list)
 
     def summarize(self, force = False) : 
@@ -82,14 +83,12 @@ class Memory(object) :
         message = None
         for i in range(-1, -len(self.records) - 1, -1) :
             record = self.records[i]
-            if record["type"] == "status" : 
+            if record["type"] in ["status", "report"] : 
                 continue
-            if record["type"] == "message" : 
+            if record["type"] in ["message", "reflection"] : 
                 if self.last_summarize_record_time is None or mc_time_later(record["time"], self.last_summarize_record_time) :
                     message = record.get("data", None)
                 break
-        if message is not None :
-            self.summarize(force = True)
         return message
     
     def build_prompt(self) : 

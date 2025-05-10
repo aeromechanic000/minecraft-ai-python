@@ -79,12 +79,15 @@ class Agent(object) :
                 record = {}
 
                 if username is not None and all([not message.startswith(msg) for msg in ignore_messages + self.manager.configs.get("ignore_messages", [])]) : 
-                    if sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message : 
+                    if username == self.bot.username :
+                        if message.strip().startswith("[[Self-Driven Thinking]]") :
+                            record = {"type" : "reflection", "data" : {"sender" : username, "content" : message.strip()[len("[[Self-Driven Thinking]]"):]}}
+                        else :
+                            self.memory.update({"type" : "report", "data" : {"sender" : username, "content" : message}})
+                    elif sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message : 
                         record = {"type" : "message", "data" : {"sender" : username, "content" : message}}
-                    elif username == self.bot.username and message.strip().startswith("[[Self-Driven Thinking]]") :
-                        record = {"type" : "message", "data" : {"sender" : username, "content" : message.strip()[len("[[Self-Driven Thinking]]"):]}}
                     else :
-                        self.memory.update({"type" : "status", "data" : {"sender" : username, "status" : message}})
+                        self.memory.update({"type" : "status", "data" : {"sender" : username, "content" : message}})
                 
                 if len(record) < 1 : 
                     add_log(title = self.pack_message("Ignore message."), content = "sender: %s; message: %s" % (username, message), label = "warning", print = False)
@@ -99,6 +102,7 @@ class Agent(object) :
                 self.working_process = current_working_process 
                 message = self.memory.get_out_of_summary_message()
                 while message is not None :
+                    self.memory.summarize()
                     prompt = self.build_prompt(message) 
                     add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
                     llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt, max_tokens = self.configs.get("max_tokens", 4096))
