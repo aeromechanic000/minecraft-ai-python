@@ -7,8 +7,8 @@ class Plugin(object) :
     def __init__(self) : 
         self.reminder = {} 
     
-    def get_reminder(self, agent) : 
-        return self.reminder.get(agent.configs["username"], None)
+    def get_reminder(self, username) : 
+        return self.reminder.get(username, None)
 
     def get_actions(self) : 
         return []

@@ -1,22 +1,29 @@
 
-import math, time, functools 
+import sys, math, time, functools 
+import importlib.machinery
+import importlib.util
 from javascript import require, On 
 
 from memory import *
 from actions import *
 
 class Agent(object) : 
-    def __init__(self, configs, manager) :
-        add_log(title = "Agent Created.", content = "Configs: %s" % configs, label = "success")
-        self.configs, self.manager = configs, manager
-        self.self_driven_thinking_timer = self.manager.configs.get("self_driven_thinking_timer", None)
+    def __init__(self, configs, settings) :
+        add_log(title = "Agent Created.", content = json.dumps(configs, indent = 4), label = "success")
+        self.configs, self.settings = configs, settings 
+        global mcdata 
+        mcdata = minecraft_data(self.settings["minecraft_version"])
+        global prismarine_item 
+        prismarine_item = prismarine_items(self.settings["minecraft_version"])
+        self.load_plugins()
+        self.self_driven_thinking_timer = self.settings.get("self_driven_thinking_timer", None)
         self.status_summary = ""
         self.working_process = None
         bot_configs = self.configs.copy()
         bot_configs.update({
-            "host" : self.manager.configs["host"],
-            "port" : self.manager.configs["port"],
-            "version" : self.manager.configs["minecraft_version"],
+            "host" : self.settings["host"],
+            "port" : self.settings["port"],
+            "version" : self.settings["minecraft_version"],
         })
         self.memory = Memory(self)
         self.bot = mineflayer.createBot(bot_configs)
@@ -30,21 +37,17 @@ class Agent(object) :
         def handle_resource_pack(*args) :
             self.bot.acceptResourcePack()
 
-        @On(self.bot, 'time')
-        def handle_time(*args) :
-            if self.self_driven_thinking_timer is not None : 
-                if self.self_driven_thinking_timer < 1 : 
-                    self.self_driven_thinking_timer = self.manager.configs.get("self_driven_thinking_timer", None)
-                    self_driven_thinking(self)
-                else :
-                    self.self_driven_thinking_timer -= 1
-        
         @On(self.bot, "login")
         def handle_login(*args) :
             skin_path = os.path.join("./skins", self.configs.get("skin", {}).get("file", None))
             if os.path.isfile(skin_path) :
                 self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), skin_path))
 
+        @On(self.bot, "end")
+        def handle_end(*args):
+            self.bot.quit()
+            add_log(title = self.pack_message("Bot end."), label = "warning")
+            
         @On(self.bot, 'spawn')
         def handle_spawn(*args) :
             add_log(title = self.pack_message("I spawned."), label = "success")
@@ -57,18 +60,26 @@ class Agent(object) :
                 viewer = require('prismarine-viewer')
                 viewer["mineflayer"](self.bot, {"port": viewer_port, "firstPerson" : viewer_first_person, "viewDistance" : viewer_distance})
 
-            @On(self.bot, "end")
-            def handle_end(*args):
-                self.bot.quit()
-                add_log(title = self.pack_message("Bot end."), label = "success")
-                self.stop()
-                self.manager.stop()
+            @On(self.bot, 'time')
+            def handle_time(*args) :
+                # this is triggered for every 20 time ticks
+                # An hour in Mincraft has 10000 time ticks, and it takes 20 mins in real world.
+                if self.self_driven_thinking_timer is not None : 
+                    if self.self_driven_thinking_timer < 1 : 
+                        self_driven_thinking(self)
+                    else :
+                        self.self_driven_thinking_timer -= 1
+            
+            @On(self.bot, "think")
+            def handle_think(this, message):
+                record = {"type" : "reflection", "data" : {"sender" : self.bot.username, "content" : message}}
+                self.memory.update(record)
+                work()
 
             @On(self.bot, 'chat')
-            def handle_msg(this, username, message, *args):
+            def handle_chat(this, username, message, *args):
                 message = message.strip()
                 ignore_messages = [
-                    "/",
                     "Set own game mode to",
                     "Set the time to",
                     "Set the difficulty to",
@@ -77,25 +88,22 @@ class Agent(object) :
                     "Gamerule "
                 ]
                 record = {}
-
-                if username is not None and all([not message.startswith(msg) for msg in ignore_messages + self.manager.configs.get("ignore_messages", [])]) : 
+                if username is not None and all([not message.startswith(msg) for msg in ignore_messages + self.settings.get("ignore_messages", [])]) : 
                     if username == self.bot.username :
-                        if message.strip().startswith("[[Self-Driven Thinking]]") :
-                            record = {"type" : "reflection", "data" : {"sender" : username, "content" : message.strip()[len("[[Self-Driven Thinking]]"):]}}
-                        else :
-                            self.memory.update({"type" : "report", "data" : {"sender" : username, "content" : message}})
+                        self.memory.update({"type" : "report", "data" : {"sender" : username, "content" : message}})
                     elif sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message : 
                         record = {"type" : "message", "data" : {"sender" : username, "content" : message}}
                     else :
                         self.memory.update({"type" : "status", "data" : {"sender" : username, "content" : message}})
-                
                 if len(record) < 1 : 
                     add_log(title = self.pack_message("Ignore message."), content = "sender: %s; message: %s" % (username, message), label = "warning", print = False)
                     return 
 
                 add_log(title = self.pack_message("Get message."), content = "sender: %s; message: %s" % (username, message), label = "action")
-                self.memory.update({"type" : "message", "data" : {"sender" : username, "content" : message}})
-                work()
+                self.memory.update(record)
+
+                if record["type"] == "message" :
+                    work()
                     
             def work() : 
                 current_working_process = get_random_label()
@@ -104,27 +112,58 @@ class Agent(object) :
                 while message is not None :
                     self.memory.summarize()
                     prompt = self.build_prompt(message) 
+                    json_keys = {
+                        "status" : {
+                            "description" : "An updated version of the status summary of the agent. If no update is needed, set value to null.",
+                        },
+                        "action" : {
+                            "description" : "An JSON dictionary to specify the next action for the agent to execute. If no action is needed, set value to null.",
+                            "keys" : {
+                                "name" : {
+                                    "description" : "a JSON string of the action name which is listed in the 'Available Actions'",
+                                },
+                                "params" : {
+                                    "description" : "a JSON dictionary where keys are the names of the parameters as described in the 'Available Actions' for the selecte action; and the associated value should follow the 'type' and 'domain' constrains in the description.",
+                                }
+                            } 
+                        }
+                    }
+                    examples = [
+                        '''
+```
+{
+    "status" : "Stand in a place near the beach, and now is asked to go to a position near player 'player_1'.",  
+    "action" : {
+        "name" : "go_to_player", 
+        "params" : {
+            "player_name" : "player_1",
+            "closeness" : 1
+        }
+    }  
+} 
+```
+''',
+                    ]
                     add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
-                    llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt, max_tokens = self.configs.get("max_tokens", 4096))
-                    add_log(title = self.pack_message("Get LLM response"), content = str(llm_result), label = "action", print = False)
-                    if llm_result["status"] > 0 :
-                        add_log(title = self.pack_message("Error in calling LLM: %s" % llm_result["error"]), label = "warning")
-                    else :
-                        _, data = split_content_and_json(llm_result["message"])
-                        add_log(title = self.pack_message("Got data."), content = json.dumps(data, indent = 4), label = "action")
+                    llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
+                    add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
+                    data = llm_result["data"]
+                    if data is not None :
                         status_summary = data.get("status", None)
                         if status_summary is not None : 
                             self.status_summary = status_summary
-                        action = self.manager.extract_action(data)
+                        action = self.extract_action(data)
                         if action is not None : 
                             add_log(title = self.pack_message("Perfom action."), content = str(action), label = "action")
                             action["params"]["agent"] = self
                             run_action(action["perform"], action["params"])
-                    message = self.memory.get_out_of_summary_message()
-                    if message is not None and self.working_process != current_working_process :
-                        break
-                self.working_process = None
 
+                    if self.working_process != current_working_process :
+                        break
+                    message = self.memory.get_out_of_summary_message()
+                self.working_process = None
+                self_driven_thinking(self)
+            
             def run_action(perform, params) : 
                 try : 
                     result = perform(**params)
@@ -132,6 +171,9 @@ class Agent(object) :
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
 
     def build_prompt(self, message) :     
+        message_info = "\"%s\" said: \"%s\"" % (message["sender"], message["content"])
+        if message["sender"] == self.bot.username :
+            message_info = "Reflection: \"%s\"" % message["content"]
         prompt = '''
 You are an AI assistant helping to plan the next action for a Minecraft bot. Based on the current status, memory, instruction, and the list of available actions, your task is to determine what the bot should do next. 
 
@@ -143,6 +185,7 @@ Important Guidelines:
 1. Only update the status if new context or progress has occurred. Otherwise, set it to null.
 2. Only generate an action if one is needed. Otherwise, set action to null.
 3. When choosing an action, prioritize non-chat actions to make sure the task progresses. 
+4. When is is required to perform some moves, choose an action to response, and `chat` should be the last option.
 4. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
 
 The selected action's parameters must follow the types and domains described under 'Available Actions'.
@@ -159,40 +202,16 @@ The selected action's parameters must follow the types and domains described und
 ## Available Actions 
 %s
 
-''' % (self.get_status_info(), self.memory.get(), "\"%s\" said: \"%s\"" % (message["sender"], message["content"]), self.manager.get_actions_info())
-        if self.manager.configs.get("insecure_coding_rounds", 0) > 0 : 
+''' % (self.get_status_info(), self.memory.get(), message_info, self.get_actions_info())
+        if self.settings.get("insecure_coding_rounds", 0) > 0 : 
             prompt += '''
 ## Additional Instruction for Using `new_action`:
-Among the available actions, always prioritize using predefined actions to accomplish the current task. Only use the new_action when it is clearly necessary — i.e., when none of the existing predefined actions are sufficient to fulfill the task. If you decide to use new_action, you must provide a clear, specific, and complete description of the task under the `task` parameter. This description should include:
+Among the available actions, always prioritize using predefined actions to accomplish the current task. Only use the new_action when it is clearly necessary — i.e., when none of the existing predefined actions (execluding `chat`) are sufficient to fulfill the task. If you decide to use new_action, you must provide a clear, specific, and complete description of the task under the `task` parameter. This description should include:
     - What the bot is expected to do,
     - Any contextual details needed for proper execution,
     - The expected result or behavior,
     - Relevant constraints, if any.
 This is essential because the new_action will result in generating a custom Python function (generated_action(agent)) that uses agent.bot to control the bot. Poorly specified tasks will cause the bot to fail or behave unpredictably.
-'''
-        prompt += '''
-## Output Format
-The result should be formatted in **JSON** dictionary and enclosed in **triple backticks (` ``` ` )**  without labels like 'json', 'css', or 'data'.
-- **Do not** generate redundant content other than the result in JSON format.
-- **Do not** use triple backticks anywhere else in your answer.
-- The JSON must include the following keys and values accordingly :
-    - 'status' : An updated version of the status summary of the agent. If no update is needed, set value to null.
-    - 'action' : An JSON dictionary to specify the next action for the agent to execute. If no action is needed, set value to null. Otherwise, the dicionary should includes following keys and values : 
-        - 'name' : a JSON string of the action name which is listed in the 'Available Actions'
-        - 'params' : a JSON dictionary where keys are the names of the parameters as described in the 'Available Actions' for the selecte action; and the associated value should follow the 'type' and 'domain' constrains in the description. 
-
-Following is an example of the output: 
-```
-{
-    "status" : "Stand in a place near the beach, and now is asked to go to a position near player 'player_1'.",  
-    "action" : {
-        "name" : "go_to_player", 
-        "params" : {
-            "player_name" : "player_1",
-            "closeness" : 1
-        }
-    }  
-}
 '''
         return prompt
 
@@ -241,10 +260,86 @@ Following is an example of the output:
         except Exception as e : 
             add_log(title = self.pack_message("Exception when get information of nearby blocks and entities."), content = "Exception: %s" % e, label = "warning")
         return status
+    
+    def load_plugins(self) : 
+        self.plugins, self.plugin_actions = {}, [] 
+        plugins_dir = "./plugins"
+        for item in os.listdir(plugins_dir) :
+            plugin_path = os.path.join(plugins_dir, item, "main.py")
+            if item in self.configs.get("plugins", []) and os.path.isfile(plugin_path) :
+                plugin_main = "%s/%s/main.py" % (plugins_dir, item) 
+                try :
+                    loader = importlib.machinery.SourceFileLoader('my_class', plugin_main)
+                    spec = importlib.util.spec_from_loader(loader.name, loader)
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    self.plugins[item] = module.PluginInstance()
+                    self.plugin_actions += self.plugins[item].get_actions()
+                except Exception as e : 
+                    add_log(title = "Exeption happens when importing plugin: %s" % item, content = "Exception: %s" % e, label = "warning")
+        add_log(title = "Loaded plugins:", content = str(list(self.plugins.keys())), label = "agent")
+
+    def get_actions(self) : 
+        ignore_actions = self.settings.get("ignore_actions", [])
+        if self.settings.get("insecure_coding_rounds", 0) < 1 and "new_action" not in ignore_actions :
+            ignore_actions.append("new_action")
+        actions = []
+        for action in get_primary_actions() + self.plugin_actions : 
+            if action["name"] not in ignore_actions : 
+                actions.append(action)
+        return actions
+
+    def get_actions_info(self) : 
+        actions_info = ""
+        for i, action in enumerate(self.get_actions()) : 
+            actions_info += "\n\n### Action %d\n- Action Name : %s\n- Action Description : %s " % (i, action["name"], action["description"])
+            if len(action["params"]) > 0 : 
+                actions_info += "\n- Action Parameters:"
+                for key, value in action["params"].items() : 
+                    actions_info += "\n\t- %s : %s The parameter should be given in a JSON type of '%s'." % (key, value["description"], value["type"])
+        return actions_info
+
+    def get_actions_desc(self) : 
+        actions_desc = ""
+        for action in self.get_actions() : 
+            actions_desc += "\n\t- %s : %s" % (action["name"], action["description"])
+        return actions_desc
+    
+    def extract_action(self, data) : 
+        action = data.get("action", None) 
+        if action is not None and isinstance(action, dict) : 
+            name = action.get("name", None)
+            action_data = None
+            for a in self.get_actions() : 
+                if a["name"] == name : 
+                    action_data = a
+                    break
+            if action_data is not None :
+                for key, value in action_data["params"].items() : 
+                    param_value = validate_param(action.get("params", {}).get(key, None), value["type"], value.get("domain", None))
+                    if param_value is not None :
+                        action["params"][key] = param_value
+                    else : 
+                        action = None
+                        break
+                if action is not None : 
+                    action["perform"] = action_data["perform"]
+        return action
 
     def pack_message(self, message) : 
         return "[Agent \'%s\'] %s" % (self.configs["username"], message)
 
-    def stop(self) :
-        self.act_running, self.plan_running = False, False
-        add_log(title = self.pack_message("Stop."), label = "success")
+    def stop(self) : 
+        pass
+
+if __name__ == "__main__" : 
+    configs = read_json(sys.argv[1])
+    settings = read_json("./settings.json")
+    logging.basicConfig(
+            filename = os.path.join("./logs/log-%s-%s.json" % (get_datetime_stamp(), configs["username"])),
+            filemode = 'a',
+            format = '%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+            datefmt = '%H:%M:%S',
+            level = logging.DEBUG, 
+    )
+    Agent(configs, settings)

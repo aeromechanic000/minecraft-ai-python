@@ -37,11 +37,11 @@ npx patch-package [package-name]
 Then when you do `npm install`, the patches will be applied.
 5. Create a conda environment with python3.10.
 ```
-conda create -n Minecraft AI-Python python=3.10
+conda create -n mc python=3.10
 ```
 6. Activate the created conda environment. 
 ```
-conda activate Minecraft AI-Python
+conda activate mc 
 ```
 7. Install the required python pacages. 
 ```
@@ -60,7 +60,7 @@ python main.py path/to/another/configs
 
 # Documentation
 
-More detailed information of Minecraft AI-Python can be found in the [Documentation](https://github.com/aeromechanic000/Minecraft AI-Python/tree/main/doc).
+More detailed information of Minecraft AI-Python can be found in the [Documentation](https://github.com/aeromechanic000/minecraft-ai-python/tree/main/doc).
 
 # Citation
 ```

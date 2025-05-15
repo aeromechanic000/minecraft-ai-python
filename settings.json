@@ -1,0 +1,11 @@
+{
+    "host" : "127.0.0.1",
+    "port" : 55916,
+    "minecraft_version" : "1.21.1",
+    "self_driven_thinking_timer" : null,
+    "insecure_coding_rounds" : 3,
+    "ignore_actions" : [], 
+    "ignore_messages" : [],
+    "plugins" : [],
+    "agents" : ["./profiles/lucy.json"]
+}

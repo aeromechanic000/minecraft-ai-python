@@ -58,12 +58,62 @@ def split_content_and_json(text) :
             break
     return content, data
 
-
 def get_providers() :
     providers = read_json("model.json") 
     return providers
 
-def call_llm_api(provider, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+def get_keys_info_list(keys) : 
+    keys_info = []
+    if keys is not None :
+        for key, value in keys.items() :
+            keys_info.append("* %s" % value.get("description")) 
+            lst = get_keys_info_list(value.get("keys", {})) 
+            if len(lst) > 0 : 
+                keys_info[-1] += " It is a JSON dictionary containing the following keys:"
+                keys_info += list(map(lambda l : "\t" + l, lst)) 
+    return keys_info
+
+def get_keys_info(keys) : 
+    return "\n".join(get_keys_info_list(keys))
+
+def extract_data(data, keys) : 
+    d = {}
+    for key, value in keys.items() : 
+        d_value = data.get(key, None)
+        if d_value is not None : 
+            ks = value.get("keys", None)
+            if ks is not None : 
+                if isinstance(d_value, dict) : 
+                    d[key] = extract_data(d_value, ks)
+            else : 
+                d[key] = d_value
+    return d
+
+def call_llm_api(provider, model, prompt, json_keys = None, examples = None, images = None, max_tokens = 4096, temperature = 0.9) :
+    keys_info = get_keys_info(json_keys)
+    if len(keys_info.strip()) > 0 : 
+        prompt += '''
+\n## Output Format
+The result should be formatted in **JSON** dictionary and enclosed in **triple backticks (` ``` ` )**  without labels like 'json', 'css', or 'data'.
+- **Do not** generate redundant content other than the result in JSON format.
+- **Do not** use triple backticks anywhere else in your answer.
+- The JSON must include the following keys and values accordingly :
+%s
+''' % keys_info 
+
+    examples_info = "" 
+    for i, example in enumerate(examples) : 
+        examples_info += '''
+### Example %d 
+%s
+
+''' % (i, example)
+    if len(examples_info.strip()) > 0 : 
+        prompt += '''
+\n## Output Examples
+%s
+''' % examples_info 
+
     providers = get_providers()
     result = {"message" : None, "status" : 0, "error" : None}
     if provider == "Ollama" :
@@ -81,6 +131,12 @@ def call_llm_api(provider, model, prompt, images = None, max_tokens = 4096, temp
     else :
         result["status"] = 1
         result["error"] = "[%s] Invalid provider: %s" % (inspect.currentframe().f_code.co_name, provider)
+
+    if result["status"] < 1 and json_keys is not None :
+        _, data = split_content_and_json(result["message"])
+        result["data"] = extract_data(data, json_keys)
+    else :
+        result["data"] = None
     return result
 
 def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :

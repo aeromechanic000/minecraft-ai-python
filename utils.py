@@ -1,4 +1,5 @@
 
+import inspect
 import datetime, json
 import math, random
 import logging, warnings
@@ -59,7 +60,11 @@ class bcolors:
 def print_msg(title, content = "", label = "text") :
     head_tag = ""
     end_tag = ""
-    if label == "manager" :
+    if label == "system" :
+        head_tag = bcolors.MAGENTA
+        end_tag = bcolors.ENDC
+        title = "[%s] %s" % (get_datetime(), title)
+    elif label == "agent" :
         head_tag = bcolors.LIGHT_BLUE
         end_tag = bcolors.ENDC
         title = "[%s] %s" % (get_datetime(), title)

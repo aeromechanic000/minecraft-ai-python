@@ -43,13 +43,13 @@ class Memory(object) :
             if exclude_summary == True and self.last_summarize_record_time is not None and not mc_time_later(record["time"], self.last_summarize_record_time) :
                 break
             if record["type"] == "message" : 
-                info_list.append("[%s-th day %s:%s] Got message from \"%s\": \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
+                info_list.append("[The %s-th day, %s:%s] Got message from \"%s\": \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
             elif record["type"] == "reflection" : 
-                info_list.append("[%s-th day %s:%s] Got reflection from myself : \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["content"]))  
+                info_list.append("[The %s-th day, %s:%s] Got reflection from myself : \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["content"]))  
             elif record["type"] == "report" : 
-                info_list.append("[%s-th day %s:%s] I send a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["content"]))  
+                info_list.append("[The %s-th day, %s:%s] I sent a report message: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["content"]))  
             elif record["type"] == "status" :
-                info_list.append("[%s-th day %s:%s] \"%s\" sends a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
+                info_list.append("[The %s-th day, at time %s:%s] \"%s\" sends a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
         return "\n".join(info_list)
 
     def summarize(self, force = False) : 
@@ -57,13 +57,28 @@ class Memory(object) :
             add_log(title = self.agent.pack_message("Summarize memory."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
             prompt = self.build_prompt()
             add_log(title = self.agent.pack_message("Built prompt."), content = prompt, label = "memory", print = False)
-            llm_result = call_llm_api(self.agent.configs["provider"], self.agent.configs["model"], prompt, max_tokens = self.agent.configs.get("max_tokens", 4096))
-            add_log(title = self.agent.pack_message("Get LLM response:"), content = str(llm_result), label = "memory", print = False)
-            if llm_result["status"] > 0 :
-                add_log(title = self.agent.pack_message("Error in calling LLM: %s" % llm_result["error"]), label = "warning")
-            else :
-                _, data = split_content_and_json(llm_result["message"])
-                add_log(title = self.agent.pack_message("Got data."), content = json.dumps(data, indent = 4), label = "memory")
+            json_keys = {
+                "summary" : {
+                    "description" : "The new summary of the memory, about 500 words.", 
+                },  
+                "longterm_thinking" : {
+                    "description" : "The long-term thinking of the bot, about 200 words; If not necessary to update the long-term thinking, leave the value to null.",
+                },
+            }
+            examples = [
+                '''
+```
+{
+    "summary" : "I got a message from the player to ask me to collect some woods, and I collected 20 ore logs.",  
+    "instruction" : "try to collect more ore logs.",
+}
+```
+''',
+            ]
+            llm_result = call_llm_api(self.agent.configs["provider"], self.agent.configs["model"], prompt, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
+            add_log(title = self.agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "memory", print = False)
+            data = llm_result["data"]
+            if data is not None :
                 summary, longterm_thinking = data.get("summary", None), data.get("longterm_thinking", None)
                 if summary is not None : 
                     self.summary = str(summary)
@@ -124,21 +139,6 @@ Please:
 
 ## Long-term Thinking
 %s
-
-## Output Format
-The result should be formatted in **JSON** dictionary and enclosed in **triple backticks (` ``` ` )**  without labels like 'json', 'css', or 'data'.
-- **Do not** generate redundant content other than the result in JSON format.
-- **Do not** use triple backticks anywhere else in your answer.
-- The JSON must include the following keys and values accordingly :
-    - 'summary' : The new summary of the memory, about 500 words. 
-    - 'longterm_thinking' : The long-term thinking of the bot, about 200 words; If not necessary to update the long-term thinking, leave the value to null.
-
-Following is an example of the output: 
-```
-{
-    "summary" : "I got a message from the player to ask me to collect some woods, and I collected 20 ore logs.",  
-    "instruction" : "try to collect more ore logs.",
-}
 ''' % (self.get_status_info(), self.get_records_info(20), self.agent.configs.get("profile", "A smart minecraft AI"), self.longterm_thinking, self.summary)
         return prompt
     
