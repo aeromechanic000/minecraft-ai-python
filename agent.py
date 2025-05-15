@@ -279,6 +279,15 @@ This is essential because the new_action will result in generating a custom Pyth
                     add_log(title = "Exeption happens when importing plugin: %s" % item, content = "Exception: %s" % e, label = "warning")
         add_log(title = "Loaded plugins:", content = str(list(self.plugins.keys())), label = "agent")
 
+    def get_plugin_reminder_info(self) : 
+        reminder_list = []
+        for key, value in self.plugins.items() :
+            if value is not None :
+                reminder = value.get_reminder()
+                if reminder is not None and len(reminder.strip()) > 0 :
+                    reminder_list.append("\n [Reminder from \'%s\'] %s" % (key, reminder))
+        return "\n".join(reminder_list)
+
     def get_actions(self) : 
         ignore_actions = self.settings.get("ignore_actions", [])
         if self.settings.get("insecure_coding_rounds", 0) < 1 and "new_action" not in ignore_actions :
@@ -325,7 +334,7 @@ This is essential because the new_action will result in generating a custom Pyth
                 if action is not None : 
                     action["perform"] = action_data["perform"]
         return action
-
+    
     def pack_message(self, message) : 
         return "[Agent \'%s\'] %s" % (self.configs["username"], message)
 

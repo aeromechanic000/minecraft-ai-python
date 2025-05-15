@@ -23,6 +23,12 @@ Based on the above, follow these steps:
 4. If neither applies and there is nothing left to do, return a null message.
 5. Consider the personality traits in the profile (e.g. whether the bot is generally active or passive, prefer teamwork or solitude, enjoy building or exploring). If the current situation matches the preferences, it's appropriate to be more proactive and suggest what to do next—even if no one asked. In the the suggestion, try to advice the bot to ask for others' opinions before diving into a task.
 
+## Bot's Profile
+%s
+
+## Long-term Thinking
+%s
+
 ## Bot's Status
 %s
 
@@ -31,13 +37,12 @@ Based on the above, follow these steps:
 
 ## Memory Summary
 %s
-
-## Bot's Profile
-%s
-
-## Long-term Thinking
-%s
 ''' % (agent.get_status_info(), agent.memory.get_records_info(20), agent.configs.get("profile", "A smart minecraft AI"), agent.memory.longterm_thinking, agent.memory.summary)
+
+    reminder_info = agent.get_plugin_reminder_info()
+    if reminder_info is not None and len(reminder_info.strip()) > 0 :
+        prompt += "\n## Reminders\n%s" % reminder_info
+
     json_keys = {
         "reflection" : {
             "description" :  "A short summary in JSON string of your decision",
