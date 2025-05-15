@@ -105,7 +105,19 @@ You should see the AI agent(s) connect and say "Hi, I am [bot's name]!" within y
 - [How to Create The Customized Plugins.](https://github.com/aeromechanic000/minecraft-ai-python/blob/main/tutorials/create_customized_plugins.md)
 
 ## FAQs
-TBC.
+
+### `ECONNRESET` Error with Code `-4077`
+
+This error typically occurs when the `minecraft_version` specified in your `settings.json` file does not match the actual version of the Minecraft server you are running.
+
+**Recommended Fix**
+
+* Use **Minecraft Java Edition `1.21.1`**
+* Ensure the `minecraft_version` field in `settings.json` exactly matches the version of your running Minecraft world:
+
+```json
+"minecraft_version": "1.21.1"
+```
 
 ## Documentation
 
