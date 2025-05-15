@@ -45,7 +45,7 @@ Plugins are only loaded if explicitly listed in the `plugins` in `settings.json`
 For example, to enable both the `Dance`plugins, use:
 
 ```json
-"plugins" : ["Dance", ]
+"plugins" : ["Dance"]
 ```
 
 ## Example Plugin: `Dance`
