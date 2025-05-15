@@ -6,7 +6,7 @@ from plugin import Plugin
 
 def pop_dancing(agent, duration) :
     result = ""
-    agent.bot.chat("I am dancing~")
+    agent.bot.chat("I am dancing")
     agent.bot.setControlState("jump", True)
     time.sleep(duration)
     agent.bot.setControlState("jump", False)
