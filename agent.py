@@ -39,9 +39,9 @@ class Agent(object) :
 
         @On(self.bot, "login")
         def handle_login(*args) :
-            skin_path = os.path.join("./skins", self.configs.get("skin", {}).get("file", None))
+            skin_path = self.configs.get("skin", {}).get("file", None)
             if os.path.isfile(skin_path) :
-                self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), skin_path))
+                self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), os.path.abspath(skin_path)))
 
         @On(self.bot, "end")
         def handle_end(*args):

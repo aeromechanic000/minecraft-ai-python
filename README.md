@@ -1,73 +1,119 @@
-# <img src="https://s2.loli.net/2025/04/18/RWaFJkY4gSDLViy.png" alt="Minecraft AI" width="36" height="36"> Minecraft AI - Python
+# <img src="https://s2.loli.net/2025/04/18/RWaFJkY4gSDLViy.png" alt="Minecraft AI" width="36" height="36"> Minecraft AI-Python: An Open Framework for Building Embodied AI in Minecraft
 
-*Notice* This is a side-project related to Minecraft-AI (https://github.com/aeromechanic000/minecraft-ai). Its objective is to offer a more accessible development method for Minecraft AI characters. Currently, it is in the early development phase. As a result, the AI characters in this side-project are not as capable as those in the original Minecraft-AI. If you wish to have the experience of interacting with more intelligent AI characters, we highly recommend using Minecraft-AI.
-
-Minecraft AI-Python is a Python framework for controlling Minecraft bots using various LLMs. It builds upon the excellent foundation laid by the <a href="https://github.com/kolbytn/mindcraft">MINDcraft</a> project, which offers an efficient system for enabling LLM agents to interact with Minecraft environments using MCP-style command-to-action mappings. Many ideas and design choices from MINDcraft have been incorporated into Minecraft AI-Python. In essence, Minecraft AI-Python can be seen as the Pythonic counterpart to MINDcraft (At lease, we hope so 😉).
+Minecraft AI-Python is a modular framework designed to support the creation and customization of AI Characters (AICs) within Minecraft environments. It provides a stable and extensible interface for perception, action, communication, memory, and reflection—enabling complex individual and multi-agent behaviors.
 
 🦾 Minecraft AI-Python is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
 
 <a href="https://discord.gg/RKjspnTBmb" target="_blank"><img src="https://s2.loli.net/2025/04/18/CEjdFuZYA4pKsQD.png" alt="Official Discord Server" width="180" height="36"></a>
 
-**Screenshots of Playing Minecraft with Minecraft AI-Python**
+🪇 **Relationship between Minecraft AI-Python and Minecraft AI**
 
-<img src="https://s2.loli.net/2025/04/09/CKwbHroZaj4xJSU.gif" alt="Minecraft AI-Python: LLM-Driven Minecraft Agents in Python" width="800" height="450">
+This project is part of the broader Minecraft AI ecosystem. While the original [Minecraft AI](https://github.com/aeromechanic000/minecraft-ai) project focuses on a JavaScript-based infrastructure with integrated components, minecraft-ai-python emphasizes simplicity, flexibility, and rapid development in Python. It is ideal for educational experiments, prototyping research ideas, and custom agent development by individual contributors.
+
+🤖 **Relationship between Minecraft AI and MINDcraft**
+
+minecraft-ai shares many conceptual foundations with the [MINDCraft](https://github.com/kolbytn/mindcraft) project introduced by Convex researchers—particularly around planning, reflection, and social coordination in open-ended virtual environments. However, our approach prioritizes real-world usability and developer extensibility, with a special focus on:
+    
+- ⚙️️ A plugin-based mechanism for extending agent capabilities without modifying core logic
+- 🧪 A practical and cohesive framework that includes memory, reflection, and coordination modules 
 
 **The Introduction Video**
 
 <a href="https://www.youtube.com/watch?v=9phN6OWPmKg" target="_blank"><img src="https://s2.loli.net/2025/04/09/Kk35BEwvVlUuq9C.png" alt="Minecraft AI-Python: LLM-Driven Minecraft Agents in Python" width="800" height="450"></a>
 
-# Quick Start 🚀
-0. You need Minecraft Java Edition 1.21.1 for running Minecraft AI-Python. 
-1. Clone the repo.
-```
+## 🖼️ Showcases 
+
+<table>
+<tr>
+<td><img src="https://s2.loli.net/2025/04/09/CKwbHroZaj4xJSU.gif" alt="Minecraft AI-Python: LLM-Driven Minecraft Agents in Python" width="250" height="150"></td>
+</tr>
+</table>
+
+## 🚀 Quick Start 
+This guide will walk you through setting up and running the `minecraft-ai-python` system. Make sure you have **Minecraft Java Edition 1.21.1** installed and ready.
+
+### Prerequisites
+
+* **Minecraft Java Edition 1.21.1**
+* **Node.js** and **npm**
+* **Python 3.10** (Recommended: use [Anaconda](https://www.anaconda.com/))
+* An API token from your preferred LLM provider (e.g., OpenRouter, etc.)
+
+### 1. Clone the Repository
+
+```bash
 git clone https://github.com/aeromechanic000/minecraft-ai-python.git
-```
-2. Enter the root directory.
-```
-cd Minecraft AI-Python
-```
-3. Install the required node modules.
-```
-npm install 
-```
-4. To add a patch, you need to at first modify the local files of the module (consider files in `patches` as hints), and run 
-```
-npx patch-package [package-name]
-```
-Then when you do `npm install`, the patches will be applied.
-5. Create a conda environment with python3.10.
-```
-conda create -n mc python=3.10
-```
-6. Activate the created conda environment. 
-```
-conda activate mc 
-```
-7. Install the required python pacages. 
-```
-pip install -r requirements.txt
-```
-8. Create a new world of version 1.21.1 of Minecraft Java Edition and open it to LAN at port 55916.
-9. Fill in your token for the LLM provider service you want to use in configs.json, and make sure the agents you added use the corresponding provider and the supported models.
-10. Start the bots. 
-```
-python main.py
-```
-11. You can configure the agent in configs.json, which is the default configuration. You can also specify another configuration file when start main.py. You need to restart main.py with new configuaration, after quit the current process by pressing CTRL-C.
-```
-python main.py path/to/another/configs
+cd minecraft-ai-python
 ```
 
-# Documentation
+### 2. Install Node Dependencies
+
+Install the required Node.js packages:
+
+```bash
+npm install
+```
+
+> 🛠️ **Note on Patch Files**
+> If you need to apply custom patches to npm modules (e.g., based on the `/patches` folder), first modify the local files as needed, then run:
+
+```bash
+npx patch-package [package-name]
+```
+
+Patches will be automatically applied every time you run `npm install`.
+
+### 3. Set Up Python Environment
+
+Create a virtual environment with Python 3.10 using Anaconda:
+
+```bash
+conda create -n mc python=3.10
+conda activate mc
+```
+
+Install Python dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Launch Minecraft
+
+1. Open **Minecraft Java Edition**, version **1.21.1**
+2. Create or load a world
+3. Open the world to LAN using **port `55916`**
+
+> ⚠️ You can use the ports other than `55916`, as long as it is open and match the `settings.json`.
+
+### 5. Configure LLM Providers
+
+Edit the `model.json` file to include your LLM provider token.
+
+### 6. Start the Bot System
+
+Once everything is configured, start the agent system:
+
+```bash
+python main.py
+```
+
+You should see the AI agent(s) connect and say "Hi, I am [bot's name]!" within your Minecraft world!
+
+## Tutorials 
+
+- [How to Create The Customized Plugins.](https://github.com/aeromechanic000/minecraft-ai-python/blob/main/tutorials/create_customized_plugins.md)
+
+## Documentation
 
 More detailed information of Minecraft AI-Python can be found in the [Documentation](https://github.com/aeromechanic000/minecraft-ai-python/tree/main/doc).
 
-# Citation
+## Citation
 ```
 @misc{minecraft_ai_2025,
-    Author = {Minecraft AI},
-    Title = {Minecraft AI: Toward Embodied Turing Test Through AI Characters},
-    Year = {2025},
-    url={https://github.com/aeromechanic000/minecraft-ai}
+    author = {Minecraft AI},
+    title = {Minecraft AI: Toward Embodied Turing Test Through AI Characters},
+    year = {2025},
+    url = {https://github.com/aeromechanic000/minecraft-ai-python}
 }
 ```
