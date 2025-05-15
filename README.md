@@ -102,7 +102,10 @@ You should see the AI agent(s) connect and say "Hi, I am [bot's name]!" within y
 
 ## Tutorials 
 
-- [How to Create The Customized Plugins.](https://github.com/aeromechanic000/minecraft-ai-python/blob/main/tutorials/create_customized_plugins.md)
+- [Chat with AICs](https://github.com/aeromechanic000/minecraft-ai-python/blob/main/tutorials/chat_with_aics.md)
+- [Command The AIC to Perform An Action](https://github.com/aeromechanic000/minecraft-ai-python/blob/main/tutorials/command_aic_to_perform_an_action.md)
+- [Explore The AIC's Potentials with `new_action`](https://github.com/aeromechanic000/minecraft-ai-python/blob/main/tutorials/explore_aic_potentials_with_new_action.md)
+- [Create The Customized Plugins](https://github.com/aeromechanic000/minecraft-ai-python/blob/main/tutorials/create_customized_plugins.md)
 
 ## FAQs
 
