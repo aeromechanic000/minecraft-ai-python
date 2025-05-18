@@ -67,6 +67,33 @@ def get_all_blocks(ignore = None) :
 def get_empty_block_names() : 
     return ["air", "water", "lava", "grass", "short_grass", "tall_grass", "snow", "dead_bush", "fern"] 
 
+def get_door_types() : 
+    return [
+        "oak_door", "spruce_door", "birch_door", "jungle_door", "acacia_door", 
+        "dark_oak_door", "mangrove_door", "cherry_door", "bamboo_door", 
+        "crimson_door", "warped_door", 
+    ]
+
+def get_wool_colors() :
+    return [ 
+        "white", "orange", "magenta", "light_blue", "yellow",
+        "lime", "pink", "gray", "light_gray", "cyan",
+        "purple", "blue", "brown", "green", "red",
+        "black",
+    ]
+
+def get_wood_types() : 
+    return ["oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "mangrove", "cherry"]
+
+def get_wood_block_shapes() : 
+    return [
+        'log', 'planks',
+        'sign', 'boat', 'fence_gate',
+        'door', 'fence',
+        'slab', 'stairs',
+        'button', 'pressure_plate', 'trapdoor'
+    ]
+
 def get_cant_build_off_block_names() : 
     return ["bed", "_table", "furnace", "chest"] 
 

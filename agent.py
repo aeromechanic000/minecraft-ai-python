@@ -24,6 +24,7 @@ class Agent(object) :
             "host" : self.settings["host"],
             "port" : self.settings["port"],
             "version" : self.settings["minecraft_version"],
+            "checkTimeoutInterval" : 5 * 60000,
         })
         self.memory = Memory(self)
         self.bot = mineflayer.createBot(bot_configs)
@@ -37,21 +38,28 @@ class Agent(object) :
         def handle_resource_pack(*args) :
             self.bot.acceptResourcePack()
 
-        @On(self.bot, "login")
-        def handle_login(*args) :
-            skin_path = self.configs.get("skin", {}).get("file", None)
-            if os.path.isfile(skin_path) :
-                self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), os.path.abspath(skin_path)))
-
         @On(self.bot, "end")
         def handle_end(*args):
             self.bot.quit()
             add_log(title = self.pack_message("Bot end."), label = "warning")
             
-        @On(self.bot, 'spawn')
+        @On(self.bot, "login")
+        def handle_login(*args) :
+            skin_path = self.configs.get("skin", {}).get("file", None)
+            if skin_path is not None and os.path.isfile(skin_path) and self.memory.skin_path != skin_path :
+                self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), os.path.abspath(skin_path)))
+                self.memory.skin_path = skin_path
+                self.memory.save()
+                add_log(title = self.pack_message("Mannual restart is required"), content = "After settting the skin, you need to restart minecraft-ai-python for the AIC to behave as expected.", label = "warning")
+
+        @On(self.bot, "spawn")
         def handle_spawn(*args) :
             add_log(title = self.pack_message("I spawned."), label = "success")
-            self.bot.chat("Hi. I am %s." % self.bot.username)
+            message = self.memory.get_out_of_summary_message()
+            if message is not None :
+                work()
+            else :
+                self.bot.chat("Hi. I am %s." % self.bot.username)
             viewer_port = self.configs.get("viewer_port", None)
             viewer_first_person = self.configs.get("viewer_first_person", False)
             viewer_distance = self.configs.get("viewer_distance", 6)
@@ -87,30 +95,35 @@ class Agent(object) :
                     "Set the weather to",
                     "Gamerule "
                 ]
+                status_messages = [
+                    "Gave ",
+                ]
                 record = {}
                 if username is not None and all([not message.startswith(msg) for msg in ignore_messages + self.settings.get("ignore_messages", [])]) : 
                     if username == self.bot.username :
-                        self.memory.update({"type" : "report", "data" : {"sender" : username, "content" : message}})
-                    elif sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message : 
+                        record = {"type" : "report", "data" : {"sender" : username, "content" : message}}
+                    elif (sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message) and all(not message.startswith(msg) for msg in status_messages) :
                         record = {"type" : "message", "data" : {"sender" : username, "content" : message}}
                     else :
-                        self.memory.update({"type" : "status", "data" : {"sender" : username, "content" : message}})
+                        record = {"type" : "status", "data" : {"sender" : username, "content" : message}}
+
                 if len(record) < 1 : 
                     add_log(title = self.pack_message("Ignore message."), content = "sender: %s; message: %s" % (username, message), label = "warning", print = False)
                     return 
 
-                add_log(title = self.pack_message("Get message."), content = "sender: %s; message: %s" % (username, message), label = "action")
+                add_log(title = self.pack_message("Get message."), content = "sender: %s; message: %s; type: %s" % (username, message, record["type"]), label = "action")
                 self.memory.update(record)
 
                 if record["type"] == "message" :
                     work()
                     
             def work() : 
+                # if self.working_process is not None : 
+                    # return 
                 current_working_process = get_random_label()
                 self.working_process = current_working_process 
                 message = self.memory.get_out_of_summary_message()
                 while message is not None :
-                    self.memory.summarize()
                     prompt = self.build_prompt(message) 
                     json_keys = {
                         "status" : {
@@ -126,7 +139,10 @@ class Agent(object) :
                                     "description" : "a JSON dictionary where keys are the names of the parameters as described in the 'Available Actions' for the selecte action; and the associated value should follow the 'type' and 'domain' constrains in the description.",
                                 }
                             } 
-                        }
+                        }, 
+                        "message" : {
+                            "description" : "A message in JSON string to the player who sent you the lastest message, if necessary. If not applicable, leave the value to null.",
+                        },
                     }
                     examples = [
                         '''
@@ -145,27 +161,33 @@ class Agent(object) :
 ''',
                     ]
                     add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
-                    llm_result = call_llm_api(self.configs["provider"], self.configs["model"], prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
+                    provider, model = self.get_provider_and_model("action")
+                    llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
                     add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
                     data = llm_result["data"]
                     if data is not None :
                         status_summary = data.get("status", None)
                         if status_summary is not None : 
                             self.status_summary = status_summary
+                        resp_message = data.get("message", None)
+                        if resp_message is not None and isinstance(resp_message, str) :
+                            chat(self, message["sender"], resp_message) 
                         action = self.extract_action(data)
                         if action is not None : 
-                            add_log(title = self.pack_message("Perfom action."), content = str(action), label = "action")
                             action["params"]["agent"] = self
                             run_action(action["perform"], action["params"])
 
                     if self.working_process != current_working_process :
                         break
+                    self.memory.summarize()
                     message = self.memory.get_out_of_summary_message()
                 self.working_process = None
-                self_driven_thinking(self)
+                if self.self_driven_thinking_timer is not None :
+                    self_driven_thinking(self)
             
             def run_action(perform, params) : 
                 try : 
+                    add_log(title = self.pack_message("Perfom action."), content = "perform: %s; params: %s" % (perform.__name__, params), label = "action")
                     result = perform(**params)
                 except Exception as e : 
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
@@ -180,10 +202,12 @@ You are an AI assistant helping to plan the next action for a Minecraft bot. Bas
 You must output: 
 1. An updated status summary, if any change is needed. This should briefly describe the bot's current situation, goals, recent actions, and important outcomes that help track progress. 
 2. The next action for the bot to execute. Choose from the list of 'Available Actions', and provide appropriate parameter values based on the definitions.
+3. An message to the player who sent the latest message, if necessary.
 
 Important Guidelines:
 1. Only update the status if new context or progress has occurred. Otherwise, set it to null.
 2. Only generate an action if one is needed. Otherwise, set action to null.
+3. You should consider the latest message with the highest priority when generating the action.
 3. When choosing an action, prioritize non-chat actions to make sure the task progresses. 
 4. When is is required to perform some moves, choose an action to response, and `chat` should be the last option.
 4. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
@@ -266,27 +290,27 @@ This is essential because the new_action will result in generating a custom Pyth
         plugins_dir = "./plugins"
         for item in os.listdir(plugins_dir) :
             plugin_path = os.path.join(plugins_dir, item, "main.py")
-            if item in self.configs.get("plugins", []) and os.path.isfile(plugin_path) :
+            if item in self.settings.get("plugins", []) and os.path.isfile(plugin_path) :
                 plugin_main = "%s/%s/main.py" % (plugins_dir, item) 
                 try :
                     loader = importlib.machinery.SourceFileLoader('my_class', plugin_main)
                     spec = importlib.util.spec_from_loader(loader.name, loader)
                     module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(module)
-                    self.plugins[item] = module.PluginInstance()
+                    self.plugins[item] = module.PluginInstance(self)
                     self.plugin_actions += self.plugins[item].get_actions()
                 except Exception as e : 
                     add_log(title = "Exeption happens when importing plugin: %s" % item, content = "Exception: %s" % e, label = "warning")
-        add_log(title = "Loaded plugins:", content = str(list(self.plugins.keys())), label = "agent")
+        add_log(title = self.pack_message("Loaded plugins:"), content = str(list(self.plugins.keys())), label = "agent")
 
     def get_plugin_reminder_info(self) : 
-        reminder_list = []
+        reminder_info_list = []
         for key, value in self.plugins.items() :
             if value is not None :
                 reminder = value.get_reminder()
                 if reminder is not None and len(reminder.strip()) > 0 :
-                    reminder_list.append("\n [Reminder from \'%s\'] %s" % (key, reminder))
-        return "\n".join(reminder_list)
+                    reminder_info_list.append("\n [Reminder from \'%s\'] %s" % (key, reminder))
+        return "\n".join(reminder_info_list)
 
     def get_actions(self) : 
         ignore_actions = self.settings.get("ignore_actions", [])
@@ -334,12 +358,17 @@ This is essential because the new_action will result in generating a custom Pyth
                 if action is not None : 
                     action["perform"] = action_data["perform"]
         return action
-    
-    def pack_message(self, message) : 
-        return "[Agent \'%s\'] %s" % (self.configs["username"], message)
 
-    def stop(self) : 
-        pass
+    def get_provider_and_model(self, tag = None) :
+        provider, model =  self.configs["provider"], self.configs["model"]
+        if tag is not None and isinstance(tag, str) :
+            provider = self.configs.get(tag, {}).get("provider", provider)
+            model = self.configs.get(tag, {}).get("model", model)
+        return provider, model
+
+    def pack_message(self, message) : 
+        return "[Agent \"%s\"] %s" % (self.configs["username"], message)
+
 
 if __name__ == "__main__" : 
     configs = read_json(sys.argv[1])

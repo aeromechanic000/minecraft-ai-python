@@ -8,7 +8,7 @@ class Memory(object) :
         self.agent = agent
         self.records = []
         self.last_summarize_record_time = None
-        self.summary, self.longterm_thinking = "", ""
+        self.summary, self.longterm_thinking, self.skin_path = "", "", None
         self.bot_path = os.path.join("bots", self.agent.configs["username"])
         if not os.path.isdir(self.bot_path) : 
             os.makedirs(self.bot_path)  
@@ -23,10 +23,11 @@ class Memory(object) :
             data = read_json(self.memory_path)
             self.summary = data.get("summary", "")
             self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
+            self.skin_path = data.get("skin_path", None)
 
     def save(self) : 
         if os.path.isdir(os.path.dirname(self.memory_path)) : 
-            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking}, self.memory_path) 
+            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "skin_path" : self.skin_path}, self.memory_path) 
         if os.path.isdir(os.path.dirname(self.history_path)) : 
             write_json({"records" : self.records}, self.history_path) 
     
@@ -75,7 +76,8 @@ class Memory(object) :
 ```
 ''',
             ]
-            llm_result = call_llm_api(self.agent.configs["provider"], self.agent.configs["model"], prompt, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
+            provider, model = self.agent.get_provider_and_model("memory")
+            llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
             add_log(title = self.agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "memory", print = False)
             data = llm_result["data"]
             if data is not None :

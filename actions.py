@@ -14,14 +14,17 @@ def test(agent) :
 def self_driven_thinking(agent) :
     agent.self_driven_thinking_timer = agent.settings.get("self_driven_thinking_timer", None)
     prompt = '''
-You are an AI agent reflecting on your recent activities in a Minecraft world. Your goal is to review what you were asked to do recently, determine whether any short-term goals are still pending, and consider if there are longer-term objectives that you should resume.
+You are an AI agent reflecting on your recent activities in a Minecraft world. Your goal is to assess whether any short-term tasks are still pending, and to consider if any long-term objectives should be resumed. Your reflection should also take into account your personality profile to adjust your tone and initiative level.
 
-Based on the above, follow these steps:
-1. Check whether you were recently given a short-term task (e.g. “do a dance”, “pick up an item”, “go to a place”) that you acknowledged or talked about but did not yet complete. If so, this becomes your immediate next step.
-2. If no short-term tasks remain, check whether there is a long-term task you had started before but paused. If so, consider whether now is a good time to resume it.
-3. Before you generate the message, analyze the situation based on the memory and messages in the history record, and make sure the short-term task or long-term task has not been finished yet. If a task has been finished, avoid repeating the actions.
-4. If neither applies and there is nothing left to do, return a null message.
-5. Consider the personality traits in the profile (e.g. whether the bot is generally active or passive, prefer teamwork or solitude, enjoy building or exploring). If the current situation matches the preferences, it's appropriate to be more proactive and suggest what to do next—even if no one asked. In the the suggestion, try to advice the bot to ask for others' opinions before diving into a task.
+Please follow the steps below:
+- Short-Term Task Check: Review whether you were recently given a short-term task (e.g., “do a dance”, “pick up an item”, “go to a location”) that you acknowledged or talked about but have not yet completed. If such a task exists, it becomes your immediate next step.
+- Avoid Redundant Actions: Analyze the task carefully. Do not repeat an action if it has already been completed, unless it is meant to be repeated (e.g., a continuous or time-based task).
+- Long-Term Task Resumption: If there are no remaining short-term tasks, check whether you had previously started a long-term task and paused it. Consider whether now is a good time to resume it, and determine what the next appropriate action would be.
+- Validate Against Memory: Before deciding what to do next, analyze the memory and message history to confirm that any task you are considering has not already been completed. Avoid redundant or irrelevant actions.
+- Adjust Initiative Based on Personality: Refer to your personality profile (e.g., active vs. passive, teamwork-oriented vs. solo, builder vs. explorer).
+    * If your current situation aligns with your preferences, you may take a more proactive role.
+    * In that case, feel free to suggest a next step even if no one asked you to—but ideally, ask others for their opinion before proceeding.
+- Return Null if Idle: If there are no pending or paused tasks and nothing needs to be done, return a null message to indicate that no further reflection is needed for now.
 
 ## Bot's Profile
 %s
@@ -77,7 +80,8 @@ Based on the above, follow these steps:
 ```
 ''',
     ]
-    llm_result = call_llm_api(agent.configs["provider"], agent.configs["model"], prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
+    provider, model = agent.get_provider_and_model("reflection")
+    llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
     add_log(title = agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "agent", print = False)
     data = llm_result["data"]
     if data is not None and data.get("message", None) is not None :
@@ -231,7 +235,8 @@ $CODING_EXAMPLES
             prompt = prompt.replace("$PREVIOUS_ATTAMP_LOGS", "")
 
         add_log(title = agent.pack_message("Built prompt."), content = prompt, label = "coding", print = False)
-        llm_result = call_llm_api(agent.configs["provider"], agent.configs["model"], prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 8192))
+        provider, model = agent.get_provider_and_model("new_action")
+        llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
         add_log(title = agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "coding", print = False)
         data = llm_result["data"]
         if data is not None :

@@ -10,6 +10,86 @@ def get_entity_position(entity) :
         pos = entity.position
     return pos
 
+def get_type_of_generic(agent, block_name) :
+    if block_name in get_wood_block_shapes() : 
+        type_count = {}
+        max_count, max_type = 0, None
+        inventory = get_inventory_counts(agent)
+        for item, count in inventory.items() : 
+            for wood in get_wood_types() : 
+                if wood in item :
+                    if wood not in type_count.keys() : 
+                        type_count[wood] = 0
+                    type_count[wood] += count 
+                    if type_count[wood] > max_count :
+                        max_count = type_count[wood]
+                        max_type = wood
+        if max_type is not None : 
+            return max_type + "_" + block_name
+
+        log_types = [wood + "_log" for wood in get_wood_types()]
+        blocks = get_nearest_blocks(agent, log_types, 16, 1)
+        if len(blocks) > 0 :
+            wood = blocks[0].name.split("_")[0]
+            return wood + "_" + block_name
+        return "oak_" + block_name
+
+    if block_name == "bed" :
+        type_count = {}
+        max_count, max_type = 0, None 
+        inventory = get_inventory_counts(agent)
+        for item, count in inventory.items() : 
+            for color in get_wool_colors() : 
+                if item == color + "_wool" :
+                    if color not in type_count.keys() :
+                        type_count[color] = 0
+                    type_count[color] += count
+                    if type_count[color] > max_count :
+                        max_count = type_count[color]
+                        max_type = color
+
+        if max_type is not None : 
+            return max_type + "_" + block_name
+        return "white_" + block_name
+
+    return block_name
+
+def block_satisfied(target_name, block, relax = 0) :
+    if target_name == "dirt" :
+        return block.name in ["dirt", "grass_block"]
+    elif target_name in get_wood_block_shapes() : 
+        return block.name.endswith(target_name)
+    elif target_name == "bed" :
+        return block.name.endswith("bed")
+    elif target_name == "torch" :
+        return block.name.includes('torch');
+    return block.name == target_name
+
+def item_satisfied(agent, item_name, quantity = 1) : 
+    if agent.bot.game is not None and agent.bot.game.gameMode == "creative" :
+        quantity = 1
+    qualifying = [item_name, ]
+    if any(name in item_name for name in ["pickaxe", "axe", "shovel", "hoe", "sword"]) and "_" in item_name:
+        material, _type = item_name.split("_")
+        if material == "wooden" :
+            qualifying.append("stone_" + _type)
+            qualifying.append("iron_" + _type)
+            qualifying.append("gold_" + _type)
+            qualifying.append("diamond_" + _type)
+        elif material == "stone" :
+            qualifying.append("iron_" + _type)
+            qualifying.append("gold_" + _type)
+            qualifying.append("diamond_" + _type)
+        elif material == "iron" :
+            qualifying.append("gold_" + _type)
+            qualifying.append("diamond_" + _type)
+        elif material == "gold" :
+            qualifying.append("diamond_" + _type)
+    for item in qualifying :
+        if get_inventory_counts(agent).get(item, 0) >= quantity :
+            return True
+    return False
+
 def get_nearest_blocks(agent, block_names = None, max_distance = 64, count = 16) :
     """Find and return up to 'count' nearest blocks matching 'block_names' within 'max_distance' blocks around the agent; call with get_nearest_blocks(agent, block_names, max_distance, count)."""
     block_ids = []
@@ -83,24 +163,24 @@ def get_nearest_entities(agent, max_distance = 32, count = 16) :
 
 def get_nearest_freespace(agent, size = 1, distance = 8) :
     """Find the nearest free space of given 'size' within 'distance' blocks for agent to move or act; call with get_nearest_freespace(agent, size, distance).""" 
-    empty_pos = agent.bot.findBlocks({
+    empty_positions = agent.bot.findBlocks({
         "matching" : lambda block : block is not None and block.name in get_empty_block_names(),
         "maxDistance" : distance,
         "count" : 1000,
     })
-    for i in range(len(empty_pos)) :
+    for pos in empty_positions : 
         empty = True
         for x in range(size) :
             for z in range(size) : 
-                top = agent.bot.blockAt(empty_pos[i].offset(x, 0, z))
-                bottom = agent.bot.blockAt(empty_pos[i].offset(x, -1, z))
-                if top is None or top.name not in get_empty_block_names() or bottom is None or bottom.drops.length < 1 or not bottom.diggable :
+                top = agent.bot.blockAt(pos.offset(x, 0, z))
+                bottom = agent.bot.blockAt(pos.offset(x, -1, z))
+                if top is None or top.name not in get_empty_block_names() or bottom is None or sizeof(bottom.drops) < 1 or not bottom.diggable :
                     empty = False
                     break
             if empty is None :
                 break
         if empty == True :
-            return empty_pos[i]
+            return pos
     return None
 
 def search_entity(agent, entity_name, range = 64, min_distance = 2) :
@@ -121,6 +201,8 @@ def go_to_position(agent, x, y, z, closeness = 0) :
     """Command the agent to move to (x, y, z) position with a target 'closeness' tolerance; call with go_to_position(agent, x, y, z, closeness)."""
     agent.bot.pathfinder.setMovements(pathfinder.Movements(agent.bot))
     agent.bot.pathfinder.setGoal(pathfinder.goals.GoalNear(x, y, z, closeness)) 
+    while agent.bot.pathfinder.isMoving() :
+        time.sleep(0.2)
 
 def chat(agent, player_name, message) : 
     """Send a 'message' from the agent to a specified 'player_name' in the game chat; call with chat(agent, player_name, message)."""
@@ -140,6 +222,24 @@ def go_to_player(agent, player_name, closeness = 1) :
     else : 
         chat(agent, player_name, "I can't find where you are.")
 
+def use_door(agent, door_pos = None) :
+    """Let the agent interact with the door at the given position; call with use_door(agent, door_pos)."""
+    if door_pos is None :
+        for door_type in get_door_types() : 
+            door_pos = get_nearest_block(agent, door_type, 16)["position"]
+            if door_pos : break
+    
+    if door_pos is None : 
+        return False
+
+    go_to_position(agent, door_pos.x, door_pos.y, door_pos.z, 1)
+    
+    door_block = agent.bot.blockAt(door_pos)
+    agent.bot.lookAt(door_pos)
+    if door_block is not None and not door_block._properties.open :
+        agent.bot.activateBlock(door_block)
+    return True
+
 def move_away(agent, distance) : 
     agent_pos = get_entity_position(agent.bot.entity)
     if agent_pos is not None :
@@ -152,6 +252,11 @@ def break_block_at(agent, x, y, z) :
         return False
     block = agent.bot.blockAt(vec3.Vec3(x, y, z))
     if block is not None and block.name not in get_empty_block_names() and block.name != "water" and block.name != "lava" :
+        agent_pos = get_entity_position(agent.bot.entity) 
+        if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(x, y, z)) < 2 :
+            move_away(agent, 2)
+            time.sleep(0.2)
+
         if agent.bot.modes is not None and agent.bot.modes.isOn("cheat") :
             msg = "/setblock %d %d %d air" % (math.floor(x), math.floor(y), math.floor(z))
             agent.bot.chat(msg)
@@ -602,11 +707,16 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
         add_log(title = agent.pack_message("Place block."), content = "Have no %s to place." % block_name, print = False)
         return False
 
+    agent_pos = get_entity_position(agent.bot.entity) 
+    if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(*target_dest)) < 2 :
+        print("#", target_block.name)
+        move_away(agent, 2)
+        time.sleep(0.2)
+
     target_block = agent.bot.blockAt(vec3.Vec3(*target_dest))
     if target_block is not None : 
         if target_block.name == block_name :
             return False
-
         if target_block.name not in get_empty_block_names() :
             removed = break_block_at(agent, *target_dest)
             if removed == False :
