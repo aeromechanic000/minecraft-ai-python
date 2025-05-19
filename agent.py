@@ -45,9 +45,9 @@ class Agent(object) :
             
         @On(self.bot, "login")
         def handle_login(*args) :
-            skin_path = self.configs.get("skin", {}).get("file", None)
+            skin_path = os.path.expanduser(self.configs.get("skin", {}).get("file", None))
             if skin_path is not None and os.path.isfile(skin_path) and self.memory.skin_path != skin_path :
-                self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), os.path.abspath(skin_path)))
+                self.bot.chat("/skin set upload %s %s" % (self.configs.get("skin", {}).get("model", "classic"), skin_path))
                 self.memory.skin_path = skin_path
                 self.memory.save()
                 add_log(title = self.pack_message("Mannual restart is required"), content = "After settting the skin, you need to restart minecraft-ai-python for the AIC to behave as expected.", label = "warning")
