@@ -24,7 +24,7 @@ class Agent(object) :
             "host" : self.settings["host"],
             "port" : self.settings["port"],
             "version" : self.settings["minecraft_version"],
-            "checkTimeoutInterval" : 5 * 60000,
+            "checkTimeoutInterval" : 60 * 10000,
         })
         self.memory = Memory(self)
         self.bot = mineflayer.createBot(bot_configs)
@@ -57,7 +57,7 @@ class Agent(object) :
             add_log(title = self.pack_message("I spawned."), label = "success")
             message = self.memory.get_out_of_summary_message()
             if message is not None :
-                work()
+                self.bot.emit("work")
             else :
                 self.bot.chat("Hi. I am %s." % self.bot.username)
             viewer_port = self.configs.get("viewer_port", None)
@@ -82,7 +82,7 @@ class Agent(object) :
             def handle_think(this, message):
                 record = {"type" : "reflection", "data" : {"sender" : self.bot.username, "content" : message}}
                 self.memory.update(record)
-                work()
+                self.bot.emit("work")
 
             @On(self.bot, 'chat')
             def handle_chat(this, username, message, *args):
@@ -115,74 +115,77 @@ class Agent(object) :
                 self.memory.update(record)
 
                 if record["type"] == "message" :
-                    work()
+                    self.bot.emit("work")
                     
-            def work() : 
-                # if self.working_process is not None : 
-                    # return 
-                current_working_process = get_random_label()
-                self.working_process = current_working_process 
+            @On(self.bot, "work")
+            def handle_work(this) : 
+                if self.working_process is not None : 
+                    return 
+                self.working_process = get_random_label() 
+
                 message = self.memory.get_out_of_summary_message()
-                while message is not None :
-                    prompt = self.build_prompt(message) 
-                    json_keys = {
-                        "status" : {
-                            "description" : "An updated version of the status summary of the agent. If no update is needed, set value to null.",
-                        },
-                        "action" : {
-                            "description" : "An JSON dictionary to specify the next action for the agent to execute. If no action is needed, set value to null.",
-                            "keys" : {
-                                "name" : {
-                                    "description" : "a JSON string of the action name which is listed in the 'Available Actions'",
-                                },
-                                "params" : {
-                                    "description" : "a JSON dictionary where keys are the names of the parameters as described in the 'Available Actions' for the selecte action; and the associated value should follow the 'type' and 'domain' constrains in the description.",
-                                }
-                            } 
-                        }, 
-                        "message" : {
-                            "description" : "A message in JSON string to the player who sent you the lastest message, if necessary. If not applicable, leave the value to null.",
-                        },
-                    }
-                    examples = [
-                        '''
+                if message is None :
+                    return
+
+                prompt = self.build_prompt(message) 
+                json_keys = {
+                    "status" : {
+                        "description" : "An updated version of the status summary of the agent. If no update is needed, set value to null.",
+                    },
+                    "action" : {
+                        "description" : "An JSON dictionary to specify the next action for the agent to execute. If no action is needed, set value to null.",
+                        "keys" : {
+                            "name" : {
+                                "description" : "a JSON string of the action name which is listed in the 'Available Actions'",
+                            },
+                            "params" : {
+                                "description" : "a JSON dictionary where keys are the names of the parameters as described in the 'Available Actions' for the selecte action; and the associated value should follow the 'type' and 'domain' constrains in the description.",
+                            }
+                        } 
+                    }, 
+                    "message" : {
+                        "description" : "A message in JSON string to the player who sent you the lastest message, if necessary. If not applicable, leave the value to null.",
+                    },
+                }
+                examples = [
+                    '''
 ```
 {
-    "status" : "Stand in a place near the beach, and now is asked to go to a position near player 'player_1'.",  
-    "action" : {
-        "name" : "go_to_player", 
-        "params" : {
-            "player_name" : "player_1",
-            "closeness" : 1
-        }
-    }  
+"status" : "Stand in a place near the beach, and now is asked to go to a position near player 'player_1'.",  
+"action" : {
+    "name" : "go_to_player", 
+    "params" : {
+        "player_name" : "player_1",
+        "closeness" : 1
+    }
+}  
 } 
 ```
 ''',
-                    ]
-                    add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
-                    provider, model = self.get_provider_and_model("action")
-                    llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
-                    add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
-                    data = llm_result["data"]
-                    if data is not None :
-                        status_summary = data.get("status", None)
-                        if status_summary is not None : 
-                            self.status_summary = status_summary
-                        resp_message = data.get("message", None)
-                        if resp_message is not None and isinstance(resp_message, str) :
-                            chat(self, message["sender"], resp_message) 
-                        action = self.extract_action(data)
-                        if action is not None : 
-                            action["params"]["agent"] = self
-                            run_action(action["perform"], action["params"])
+                ]
+                add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
+                provider, model = self.get_provider_and_model("action")
+                llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
+                add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
+                data = llm_result["data"]
+                if data is not None :
+                    status_summary = data.get("status", None)
+                    if status_summary is not None : 
+                        self.status_summary = status_summary
+                    resp_message = data.get("message", None)
+                    if resp_message is not None and isinstance(resp_message, str) :
+                        chat(self, message["sender"], resp_message) 
+                    action = self.extract_action(data)
+                    if action is not None : 
+                        action["params"]["agent"] = self
+                        run_action(action["perform"], action["params"])
 
-                    if self.working_process != current_working_process :
-                        break
-                    self.memory.summarize()
-                    message = self.memory.get_out_of_summary_message()
                 self.working_process = None
-                if self.self_driven_thinking_timer is not None :
+                self.memory.summarize()
+                message = self.memory.get_out_of_summary_message()
+                if message is not None :
+                    self.bot.emit("work")
+                elif self.self_driven_thinking_timer is not None :
                     self_driven_thinking(self)
             
             def run_action(perform, params) : 
@@ -208,9 +211,10 @@ Important Guidelines:
 1. Only update the status if new context or progress has occurred. Otherwise, set it to null.
 2. Only generate an action if one is needed. Otherwise, set action to null.
 3. You should consider the latest message with the highest priority when generating the action.
-3. When choosing an action, prioritize non-chat actions to make sure the task progresses. 
-4. When is is required to perform some moves, choose an action to response, and `chat` should be the last option.
-4. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
+4. When choosing an action, consider all available actions and select the one that is most consistent with the task requirement. 
+5. When choosing an action, prioritize non-chat actions to make sure the task progresses. 
+6. When is is required to perform some moves, choose an action to response, and `chat` should be the last option.
+7. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
 
 The selected action's parameters must follow the types and domains described under 'Available Actions'.
 

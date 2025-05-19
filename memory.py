@@ -24,16 +24,16 @@ class Memory(object) :
             self.summary = data.get("summary", "")
             self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
             self.skin_path = data.get("skin_path", None)
+            self.records += data.get("records", [])
 
     def save(self) : 
         if os.path.isdir(os.path.dirname(self.memory_path)) : 
-            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "skin_path" : self.skin_path}, self.memory_path) 
+            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "skin_path" : self.skin_path, "records" : self.records[-10:]}, self.memory_path) 
         if os.path.isdir(os.path.dirname(self.history_path)) : 
             write_json({"records" : self.records}, self.history_path) 
     
     def get(self) : 
-        self.summarize()
-        info = self.get_records_info(limit = 6)
+        info = self.get_records_info(limit = 10)
         info += "\n\n Here is a summary of earlier memory: %s" % self.summary
         return info
     

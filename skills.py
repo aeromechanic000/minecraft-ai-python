@@ -254,8 +254,8 @@ def break_block_at(agent, x, y, z) :
     if block is not None and block.name not in get_empty_block_names() and block.name != "water" and block.name != "lava" :
         agent_pos = get_entity_position(agent.bot.entity) 
         if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(x, y, z)) < 2 :
-            move_away(agent, 2)
-            time.sleep(0.2)
+            move_away(agent, 4)
+            time.sleep(0.5)
 
         if agent.bot.modes is not None and agent.bot.modes.isOn("cheat") :
             msg = "/setblock %d %d %d air" % (math.floor(x), math.floor(y), math.floor(z))
@@ -709,9 +709,8 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
 
     agent_pos = get_entity_position(agent.bot.entity) 
     if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(*target_dest)) < 2 :
-        print("#", target_block.name)
-        move_away(agent, 2)
-        time.sleep(0.2)
+        move_away(agent, 4)
+        time.sleep(0.5)
 
     target_block = agent.bot.blockAt(vec3.Vec3(*target_dest))
     if target_block is not None : 
@@ -732,7 +731,7 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
 
     dirs = []
     if place_on == "side" :
-        dirs.append(dir_map["north"], dir_map["south"], dir_map["east"], dir_map["west"]);
+        dirs.append(dir_map["north"], dir_map["south"], dir_map["east"], dir_map["west"])
     elif place_on in dir_map.keys() :
         dirs.append(dir_map[place_on])
     else :

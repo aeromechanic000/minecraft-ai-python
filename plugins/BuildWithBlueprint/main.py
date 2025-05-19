@@ -151,13 +151,13 @@ class PluginInstance(Plugin) :
                 self.save()
             except Exception as e :
                 add_log(title = self.agent.pack_message("Exception happens in executing."), content = "name: %s; quantity: %s; exception : %s" % (goal["name"], goal["quantity"], e), label = "warning", print = False)
-                self.agent.bot.chat("I can't build %s right now." % goal["name"])
+                self.agent.bot.chat("I can't build \"%s\" right now." % goal["name"])
                 break
         self.stop()
-        self.save()
 
     def stop(self) : 
         self.goals, self.blueprint, self.built = [], None, {}
+        self.save()
     
     def leave_current_building(self) :
         door_pos = self.get_current_building_door()
@@ -296,6 +296,7 @@ You are a playful Minecraft bot named $NAME who is good at making building bluep
                             block_typed = get_type_of_generic(self.agent, block_name)
                             if inventory.get(block_typed, 0) > 0 :
                                 res = place_block(self.agent, block_typed, world_pos.x, world_pos.y, world_pos.z)
+                                time.sleep(1)
                                 if res == False :
                                     add_log(title = self.agent.pack_message("Failed to place block."), content = "block_name: %s; position: (%s, %s, %s)" % (block[3], world_pos.x, world_pos.y, world_pos.z), label = "plugin", print = False)
                                     ignored += 1
