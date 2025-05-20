@@ -154,10 +154,10 @@ def get_nearest_entities(agent, max_distance = 32, count = 16) :
         agent_pos = get_entity_position(agent.bot.entity)
         if entity_pos is not None and agent_pos is not None :
             distance = entity_pos.distanceTo(agent_pos)
-            if distance > max_distance: continue
-            entities.append({"entity" : entity, "distance" : distance})
-        if len(entities) >= count : 
-            break
+            if distance <= max_distance : 
+                entities.append({"entity" : entity, "distance" : distance})
+                if len(entities) >= count : 
+                    break
     entities = sorted(entities, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distance"]))
     return [entity["entity"] for entity in entities]
 
@@ -207,10 +207,9 @@ def go_to_position(agent, x, y, z, closeness = 0) :
 def chat(agent, player_name, message) : 
     """Send a 'message' from the agent to a specified 'player_name' in the game chat; call with chat(agent, player_name, message)."""
     if player_name == "all" or (player_name != agent.bot.username and agent.bot.players[player_name] is not None) : 
-        message = "@%s %s" % (player_name, message)
-        agent.bot.chat(message)
-    else : 
-        agent.bot.chat(message)
+        if not message.strip().startswith("@%s" % player_name) : 
+            message = "@%s %s" % (player_name, message)
+    agent.bot.chat(message)
 
 def go_to_player(agent, player_name, closeness = 1) : 
     """Move the agent to the specified player within a 'closeness' distance; call with go_to_player(agent, player_name, closeness)."""
@@ -252,11 +251,6 @@ def break_block_at(agent, x, y, z) :
         return False
     block = agent.bot.blockAt(vec3.Vec3(x, y, z))
     if block is not None and block.name not in get_empty_block_names() and block.name != "water" and block.name != "lava" :
-        agent_pos = get_entity_position(agent.bot.entity) 
-        if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(x, y, z)) < 2 :
-            move_away(agent, 4)
-            time.sleep(0.5)
-
         if agent.bot.modes is not None and agent.bot.modes.isOn("cheat") :
             msg = "/setblock %d %d %d air" % (math.floor(x), math.floor(y), math.floor(z))
             agent.bot.chat(msg)
@@ -388,10 +382,9 @@ def fight(agent, entity_name, kill = False) :
 def held_bow(agent) :
     """Return `True` if the bot is holding a bow in hand; call with held_bow(agent)."""
     item = agent.bot.heldItem
-    has_arrow = False
-    for key, value in get_inventory_counts(agent).items() :
-        if "arrow" in key and value > 0 : 
-            has_arrow = True
+    has_arrow = True
+    if agent.bot.game is not None and agent.bot.game.gameMode != "creative" :
+        has_arrow = any("arrow" in k and v > 0 for k, v in get_inventory_counts(agent).items())
     return item is not None and "bow" in item.name and has_arrow
 
 def get_elevation(agent, entity) :
@@ -432,15 +425,18 @@ def attack_entity(agent, entity, kill = False) :
             agent.bot.deactivateItem()
             time.sleep(0.3)
         if held_bow(agent) :
-            if kill == False :
-                fight_entity(agent, entity)
-                agent.bot.chat("I attacked %s." % entity.name)
-            else :
-                while entity in get_nearest_entities(agent, 32) and held_bow(agent) : 
+            add_log(title = agent.pack_message("Attack Entity"), content = "Use bow to fight \"%s\"." % entity.name, label = "action") 
+            fight_entity(agent, entity)
+            if kill == True :
+                while entity in get_nearest_entities(agent, 32, 64) and held_bow(agent) : 
                     time.sleep(1)
                     fight_entity(agent, entity)
                 agent.bot.chat("I killed %s." % entity.name)
+            else :
+                agent.bot.chat("I attacked %s." % entity.name)
+        else :
             equip_highest_attack(agent)
+            add_log(title = agent.pack_message("Attack Entity"), content = "Attack \"%s\"." % entity.name, label = "action") 
             if kill == False :
                 agent_pos = get_entity_position(agent.bot.entity)
                 if agent_pos is not None and agent_pos.distanceTo(entity_pos) > 5 :
@@ -449,7 +445,7 @@ def attack_entity(agent, entity, kill = False) :
                 agent.bot.chat("I attacked %s." % entity.name)
             else :
                 agent.bot.pvp.attack(entity)
-                while entity in get_nearest_entities(agent, 24) :
+                while entity in get_nearest_entities(agent, 24, 64) :
                     time.sleep(1.0)
                     if agent.bot.interrupt_code :
                         agent.bot.pvp.stop()
@@ -457,6 +453,9 @@ def attack_entity(agent, entity, kill = False) :
                 agent.bot.chat("I killed %s." % entity.name)
                 pickup_nearby_items(agent)
         return True
+    else : 
+        agent.bot.chat("I can't locate the \"%s\"." % entity.name)
+        add_log(title = agent.pack_message("Can't get the entity's position."), label = "action", print = False) 
     return False
 
 def pickup_nearby_items(agent, max_distance = 8, num = 8) : 
@@ -707,11 +706,6 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
         add_log(title = agent.pack_message("Place block."), content = "Have no %s to place." % block_name, print = False)
         return False
 
-    agent_pos = get_entity_position(agent.bot.entity) 
-    if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(*target_dest)) < 2 :
-        move_away(agent, 4)
-        time.sleep(0.5)
-
     target_block = agent.bot.blockAt(vec3.Vec3(*target_dest))
     if target_block is not None : 
         if target_block.name == block_name :
@@ -753,7 +747,17 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
         return False
 
     agent_pos = get_entity_position(agent.bot.entity)
-    if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(*target_dest)) > 3 :
+    if agent_pos is not None :
+        pos_above = agent_pos.plus(vec3.Vec3(0,1,0))
+        dont_move_for = ['torch', 'redstone_torch', 'redstone_wire', 'lever', 'button', 'rail', 'detector_rail', 'powered_rail', 'activator_rail', 'tripwire_hook', 'tripwire', 'water_bucket']
+        if block_type not in dont_move_for and agent_pos.distanceTo(target_block.position) < 1 or pos_above.distanceTo(target_block.position) < 1 :
+            # too close
+            goal = pathfinder.goals.GoalNear(target_dest[0], target_dest[1], target_dest[2], 2)
+            nverted_goal = pathfinder.goals.GoalInvert(goal)
+            agent.bot.pathfinder.setMovements(pathfinder.Movements(agent.bot))
+            agent.bot.pathfinder.setGoal(inverted_goal)
+    agent_pos = get_entity_position(agent.bot.entity)
+    if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(*target_dest)) > 4.5 :
         go_to_position(agent, target_dest[0], target_dest[1], target_dest[2], 2)
     
     agent.bot.equip(block, 'hand')

@@ -7,5 +7,5 @@
     "ignore_actions" : [], 
     "ignore_messages" : [],
     "plugins" : [],
-    "agents" : ["./profiles/max.json"]
+    "agents" : ["./profiles/lucy.json"]
 }
