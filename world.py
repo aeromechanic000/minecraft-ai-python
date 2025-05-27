@@ -33,8 +33,8 @@ def get_entity_id(entity_name) :
     entity_id = None
     entity = mcdata.entitiesByName[entity_name]
     if entity is not None :
-        item_id = entity.id
-    return item_id
+        entity_id = entity.id
+    return entity_id
 
 def get_entity_name(entity_id) :
     entity_name = None

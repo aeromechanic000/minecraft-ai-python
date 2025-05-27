@@ -12,7 +12,7 @@ def test(agent) :
         # place_block(agent, "stone", pos.x - 1, pos.y, pos.z - 1)
 
 def self_driven_thinking(agent) :
-    agent.self_driven_thinking_timer = agent.settings.get("self_driven_thinking_timer", None)
+    agent.self_driven_thinking_timer = agent.configs.get("self_driven_thinking_timer", None)
     prompt = '''
 You are an AI agent reflecting on your recent activities in a Minecraft world. Your goal is to assess whether any short-term tasks are still pending, and to consider if any long-term objectives should be resumed. Your reflection should also take into account your personality profile to adjust your tone and initiative level.
 

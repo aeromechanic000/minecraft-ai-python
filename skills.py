@@ -199,10 +199,13 @@ def search_entity(agent, entity_name, range = 64, min_distance = 2) :
 
 def go_to_position(agent, x, y, z, closeness = 0) : 
     """Command the agent to move to (x, y, z) position with a target 'closeness' tolerance; call with go_to_position(agent, x, y, z, closeness)."""
-    agent.bot.pathfinder.setMovements(pathfinder.Movements(agent.bot))
-    agent.bot.pathfinder.setGoal(pathfinder.goals.GoalNear(x, y, z, closeness)) 
-    while agent.bot.pathfinder.isMoving() :
-        time.sleep(0.2)
+    try :
+        agent.bot.pathfinder.setMovements(pathfinder.Movements(agent.bot))
+        agent.bot.pathfinder.setGoal(pathfinder.goals.GoalNear(x, y, z, closeness)) 
+        while agent.bot.pathfinder.isMoving() :
+            time.sleep(0.2)
+    except Exception as e : 
+        add_log(title = agent.pack_message("Exception in executing go_to_position."), content = "Exception: %s" % e, label = "warning")
 
 def chat(agent, player_name, message) : 
     """Send a 'message' from the agent to a specified 'player_name' in the game chat; call with chat(agent, player_name, message)."""
@@ -275,15 +278,19 @@ def break_block_at(agent, x, y, z) :
         return False
     return True
 
-def get_an_item_in_hotbar(agent, item_name) :
+def get_an_item_in_hotbar(agent, item_name, exclude = None) :
     """Return an item matching 'item_name' from the agent's hotbar if available; call with get_an_item_in_hotbar(agent, item_name)."""
-    items = list(filter(lambda slot : slot is not None and slot.name == item_name, agent.bot.inventory.slots))
+    if exclude is None or not isinstance(exclude, list) :
+        exclude = []
+    items = list(filter(lambda slot : slot is not None and item_name in slot.name and all(name not in slot.name for name in exclude), agent.bot.inventory.slots))
     item  = items[0] if len(items) > 0 else None
     return item
 
-def get_an_item_in_inventory(agent, item_name) :
+def get_an_item_in_inventory(agent, item_name, exclude = None) :
     """Return an item matching 'item_name' from the agent's inventory if available; call with get_an_item_in_inventory(agent, item_name)."""
-    items = list(filter(lambda item : item.name == item_name, agent.bot.inventory.items()))
+    if exclude is None or not isinstance(exclude, list) :
+        exclude = []
+    items = list(filter(lambda item : item_name in item.name and all(name not in item.name for name in exclude), agent.bot.inventory.items()))
     item  = items[0] if len(items) > 0 else None
     return item
 
@@ -379,80 +386,27 @@ def fight(agent, entity_name, kill = False) :
         agent.bot.chat("I can't find any %s to attack." % get_entity_display_name(get_entity_id(entity_name)))
         return False
 
-def held_bow(agent) :
-    """Return `True` if the bot is holding a bow in hand; call with held_bow(agent)."""
-    item = agent.bot.heldItem
-    has_arrow = True
-    if agent.bot.game is not None and agent.bot.game.gameMode != "creative" :
-        has_arrow = any("arrow" in k and v > 0 for k, v in get_inventory_counts(agent).items())
-    return item is not None and "bow" in item.name and has_arrow
-
-def get_elevation(agent, entity) :
-    elevation = 0
-    agent_pos = get_entity_position(agent.bot.entity)
-    entity_pos = get_entity_position(entity)
-    if agent_pos is not None and entity_pos is not None :
-        elevation = 1 + agent_pos.distanceTo(entity_pos) // 10 
-    return elevation
-
-def fight_entity(agent, entity) :
-    """Fight the entity if the bot is holding a 'bow' or a 'crossbow'; call with fight_entity(agent, entity)."""
-    item = agent.bot.heldItem
-    agent_pos = get_entity_position(agent.bot.entity)
-    entity_pos = get_entity_position(entity)
-    if item is not None and "crossbow" not in item.name :
-        if agent_pos is not None and entity_pos is not None and agent_pos.distanceTo(entity_pos) > 12 :
-            go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, 10)
-        agent.bot.activateItem()
-        time.sleep(0.8)
-        agent.bot.lookAt(entity_pos.offset(0, get_elevation(agent, entity), 0))
-        time.sleep(0.2)
-        agent.bot.deactivateItem()
-    else :
-        if agent_pos is not None and entity_pos is not None and agent_pos.distanceTo(entity_pos) > 12 :
-            go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, 10)
-        agent.bot.activateItem()
-        time.sleep(1)
-        agent.bot.lookAt(entity_pos.offset(0, get_elevation(agent, entity), 0))
-        time.sleep(2)
-        agent.bot.deactivateItem()
-
 def attack_entity(agent, entity, kill = False) : 
     """Attack the entity, and kill it if `kill` is `True`; call with attack_entity(agent, entity, kill)."""
     entity_pos = get_entity_position(entity)
     if entity_pos is not None : 
-        if agent.bot.usingHeldItem :
-            agent.bot.deactivateItem()
-            time.sleep(0.3)
-        if held_bow(agent) :
-            add_log(title = agent.pack_message("Attack Entity"), content = "Use bow to fight \"%s\"." % entity.name, label = "action") 
-            fight_entity(agent, entity)
-            if kill == True :
-                while entity in get_nearest_entities(agent, 32, 64) and held_bow(agent) : 
-                    time.sleep(1)
-                    fight_entity(agent, entity)
-                agent.bot.chat("I killed %s." % entity.name)
-            else :
-                agent.bot.chat("I attacked %s." % entity.name)
+        equip_highest_attack(agent)
+        add_log(title = agent.pack_message("Attack Entity"), content = "Attack \"%s\"." % entity.name, label = "action") 
+        if kill == False :
+            agent_pos = get_entity_position(agent.bot.entity)
+            if agent_pos is not None and agent_pos.distanceTo(entity_pos) > 5 :
+                go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z)
+            agent.bot.attack(entity)
+            agent.bot.chat("I attacked %s." % entity.name)
         else :
-            equip_highest_attack(agent)
-            add_log(title = agent.pack_message("Attack Entity"), content = "Attack \"%s\"." % entity.name, label = "action") 
-            if kill == False :
-                agent_pos = get_entity_position(agent.bot.entity)
-                if agent_pos is not None and agent_pos.distanceTo(entity_pos) > 5 :
-                    go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z)
-                agent.bot.attack(entity)
-                agent.bot.chat("I attacked %s." % entity.name)
-            else :
-                agent.bot.pvp.attack(entity)
-                while entity in get_nearest_entities(agent, 24, 64) :
-                    time.sleep(1.0)
-                    if agent.bot.interrupt_code :
-                        agent.bot.pvp.stop()
-                        return False
-                agent.bot.chat("I killed %s." % entity.name)
-                pickup_nearby_items(agent)
-        return True
+            agent.bot.pvp.attack(entity)
+            while entity in get_nearest_entities(agent, 24, 64) :
+                time.sleep(1.0)
+                if agent.bot.interrupt_code :
+                    agent.bot.pvp.stop()
+                    return False
+            agent.bot.chat("I killed %s." % entity.name)
+            pickup_nearby_items(agent)
     else : 
         agent.bot.chat("I can't locate the \"%s\"." % entity.name)
         add_log(title = agent.pack_message("Can't get the entity's position."), label = "action", print = False) 
@@ -544,7 +498,6 @@ def craft(agent, item_name, num = 1) :
         agent.bot.chat("I don't have enough %s to craft %s %s, crafted %s." % (craft_limit["limiting_resource"], num, item_name, craft_limit["num"]))
     else :
         agent.bot.chat("I have crafted %s %s." % (num, item_name))
-
     if placed_table :
         collect_blocks('crafting_table', 1)
 

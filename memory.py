@@ -54,7 +54,7 @@ class Memory(object) :
         return "\n".join(info_list)
 
     def summarize(self, force = False) : 
-        if force == True or self.get_out_of_summary_message() is not None :
+        if force == True or len(self.get_out_of_summary_message()) > 0 :
             add_log(title = self.agent.pack_message("Summarize memory."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
             prompt = self.build_prompt()
             add_log(title = self.agent.pack_message("Built prompt."), content = prompt, label = "memory", print = False)
@@ -97,17 +97,19 @@ class Memory(object) :
         record["time"] = self.agent.get_mc_time()
         self.records.append(record)
     
-    def get_out_of_summary_message(self) : 
-        message = None
+    def get_out_of_summary_messages(self) : 
+        messages = [] 
         for i in range(-1, -len(self.records) - 1, -1) :
             record = self.records[i]
             if record["type"] in ["status", "report"] : 
                 continue
             if record["type"] in ["message", "reflection"] : 
                 if self.last_summarize_record_time is None or mc_time_later(record["time"], self.last_summarize_record_time) :
-                    message = record.get("data", None)
-                break
-        return message
+                    messages.append(record)
+                else :
+                    break
+        messages.reverse()
+        return messages
     
     def build_prompt(self) : 
         prompt = '''

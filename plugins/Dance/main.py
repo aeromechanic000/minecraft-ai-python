@@ -16,7 +16,7 @@ class PluginInstance(Plugin) :
     def get_actions(self) :
         return [
             {
-                "name" : '!dancePoping',
+                "name" : 'dance_poping',
                 "description" : 'Dance poping.',
                 "params" : {
                     'duration': {"type" : 'float', "description" : 'Duration in seconds (e.g., 0.1 for 100 milliseconds).'},

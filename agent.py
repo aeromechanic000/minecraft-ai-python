@@ -16,7 +16,7 @@ class Agent(object) :
         global prismarine_item 
         prismarine_item = prismarine_items(self.settings["minecraft_version"])
         self.load_plugins()
-        self.self_driven_thinking_timer = self.settings.get("self_driven_thinking_timer", None)
+        self.self_driven_thinking_timer = self.configs.get("self_driven_thinking_timer", None)
         self.status_summary = ""
         self.working_process = None
         bot_configs = self.configs.copy()
@@ -57,8 +57,8 @@ class Agent(object) :
         @On(self.bot, "spawn")
         def handle_spawn(*args) :
             add_log(title = self.pack_message("I spawned."), label = "success")
-            message = self.memory.get_out_of_summary_message()
-            if message is not None :
+            messages = self.memory.get_out_of_summary_message()
+            if len(messages) > 0 :
                 self.bot.emit("work")
             else :
                 self.bot.chat("Hi. I am %s." % self.bot.username)
@@ -101,11 +101,16 @@ class Agent(object) :
                     "Gave ",
                 ]
                 record = {}
+
                 if username is not None and all([not message.startswith(msg) for msg in ignore_messages + self.settings.get("ignore_messages", [])]) : 
                     if username == self.bot.username :
                         record = {"type" : "report", "data" : {"sender" : username, "content" : message}}
                     elif (sizeof(self.bot.players) == 2 or "@%s" % self.bot.username in message or "@all" in message or "@All" in message or "@ALL" in message) and all(not message.startswith(msg) for msg in status_messages) :
-                        record = {"type" : "message", "data" : {"sender" : username, "content" : message}}
+                        if "@admin reset working process" in message :
+                            self.working_process = None
+                            add_log(title = self.pack_message("Working process reset."), label = "warning")
+                        else :
+                            record = {"type" : "message", "data" : {"sender" : username, "content" : message}}
                     else :
                         record = {"type" : "status", "data" : {"sender" : username, "content" : message}}
 
@@ -122,14 +127,17 @@ class Agent(object) :
             @On(self.bot, "work")
             def handle_work(this) : 
                 if self.working_process is not None : 
+                    add_log(title = self.pack_message("Current working process is not finished."), content = "working process: %s" % self.working_process, label = "warning")
                     return 
+                    
+                messages = self.memory.get_out_of_summary_message()
+                if len(messages) < 1 :
+                    add_log(title = self.pack_message("There is no messages to work on."), label = "warning")
+                    return
+                
                 self.working_process = get_random_label() 
 
-                message = self.memory.get_out_of_summary_message()
-                if message is None :
-                    return
-
-                prompt = self.build_prompt(message) 
+                prompt = self.build_prompt(messages) 
                 json_keys = {
                     "status" : {
                         "description" : "An updated version of the status summary of the agent. If no update is needed, set value to null.",
@@ -197,10 +205,14 @@ class Agent(object) :
                 except Exception as e : 
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
 
-    def build_prompt(self, message) :     
-        message_info = "\"%s\" said: \"%s\"" % (message["sender"], message["content"])
-        if message["sender"] == self.bot.username :
-            message_info = "Reflection: \"%s\"" % message["content"]
+    def build_prompt(self, messages) :     
+        message_info_list = []
+        for message in messages :
+            if message["sender"] == self.bot.username :
+                message_info_list.append("Reflection: \"%s\"" % message["content"])
+            else :
+                message_info_list.append("\"%s\" said: \"%s\"" % (message["sender"], message["content"]))
+
         prompt = '''
 You are an AI assistant helping to plan the next action for a Minecraft bot. Based on the current status, memory, instruction, and the list of available actions, your task is to determine what the bot should do next. 
 
@@ -232,7 +244,7 @@ The selected action's parameters must follow the types and domains described und
 ## Available Actions 
 %s
 
-''' % (self.get_status_info(), self.memory.get(), message_info, self.get_actions_info())
+''' % (self.get_status_info(), self.memory.get(), "\n".join(message_info_list), self.get_actions_info())
         if self.settings.get("insecure_coding_rounds", 0) > 0 : 
             prompt += '''
 ## Additional Instruction for Using `new_action`:
