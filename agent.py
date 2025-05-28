@@ -57,7 +57,7 @@ class Agent(object) :
         @On(self.bot, "spawn")
         def handle_spawn(*args) :
             add_log(title = self.pack_message("I spawned."), label = "success")
-            messages = self.memory.get_out_of_summary_message()
+            messages = self.memory.get_out_of_summary_messages()
             if len(messages) > 0 :
                 self.bot.emit("work")
             else :
@@ -130,7 +130,7 @@ class Agent(object) :
                     add_log(title = self.pack_message("Current working process is not finished."), content = "working process: %s" % self.working_process, label = "warning")
                     return 
                     
-                messages = self.memory.get_out_of_summary_message()
+                messages = self.memory.get_out_of_summary_messages()
                 if len(messages) < 1 :
                     add_log(title = self.pack_message("There is no messages to work on."), label = "warning")
                     return
@@ -192,7 +192,7 @@ class Agent(object) :
 
                 self.working_process = None
                 self.memory.summarize()
-                message = self.memory.get_out_of_summary_message()
+                message = self.memory.get_out_of_summary_messages()
                 if message is not None :
                     self.bot.emit("work")
                 elif self.self_driven_thinking_timer is not None :
