@@ -57,11 +57,6 @@ class Agent(object) :
         @On(self.bot, "spawn")
         def handle_spawn(*args) :
             add_log(title = self.pack_message("I spawned."), label = "success")
-            messages = self.memory.get_out_of_summary_messages()
-            if len(messages) > 0 :
-                self.bot.emit("work")
-            else :
-                self.bot.chat("Hi. I am %s." % self.bot.username)
             viewer_port = self.configs.get("viewer_port", None)
             viewer_first_person = self.configs.get("viewer_first_person", False)
             viewer_distance = self.configs.get("viewer_distance", 6)
@@ -134,7 +129,8 @@ class Agent(object) :
                 if len(messages) < 1 :
                     add_log(title = self.pack_message("There is no messages to work on."), label = "warning")
                     return
-                
+                self.memory.summarize()
+
                 self.working_process = get_random_label() 
 
                 prompt = self.build_prompt(messages) 
@@ -184,16 +180,19 @@ class Agent(object) :
                         self.status_summary = status_summary
                     resp_message = data.get("message", None)
                     if resp_message is not None and isinstance(resp_message, str) :
-                        chat(self, message["sender"], resp_message) 
+                        chat(self, None, resp_message) 
                     action = self.extract_action(data)
                     if action is not None : 
                         action["params"]["agent"] = self
                         run_action(action["perform"], action["params"])
+                    else :
+                        add_log(title = self.pack_message("Got no action to perform."), label = "action")
+                else :
+                    add_log(title = self.pack_message("No data returned from LLM."), label = "warning")
 
                 self.working_process = None
-                self.memory.summarize()
-                message = self.memory.get_out_of_summary_messages()
-                if message is not None :
+                messages = self.memory.get_out_of_summary_messages()
+                if len(messages) > 0 :
                     self.bot.emit("work")
                 elif self.self_driven_thinking_timer is not None :
                     self_driven_thinking(self)
@@ -204,6 +203,13 @@ class Agent(object) :
                     result = perform(**params)
                 except Exception as e : 
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
+            
+            messages = self.memory.get_out_of_summary_messages()
+            if len(messages) > 0 :
+                self.bot.chat("Found task that is not finished.")
+                self.bot.emit("work")
+            else :
+                self.bot.chat("Hi. I am %s." % self.bot.username)
 
     def build_prompt(self, messages) :     
         message_info_list = []

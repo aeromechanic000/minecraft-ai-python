@@ -123,7 +123,7 @@ def get_nearest_item(agent, distance = 1) :
     entity = None 
     agent_pos = get_entity_position(agent.bot.entity)
     if agent_pos is not None : 
-        entity = agent.bot.nearestEntity(lambda et : et.name == 'item' and et.position is not None and agent_pos.distanceTo(et.position) < distance)
+        entity = agent.bot.nearestEntity(lambda et : et.name == "item" and et.position is not None and agent_pos.distanceTo(et.position) < distance)
     return entity
 
 def search_block(agent, block_name, range = 64, min_distance = 2) :
@@ -137,12 +137,20 @@ def search_block(agent, block_name, range = 64, min_distance = 2) :
     go_to_position(agent, block.position.x, block.position.y, block.position.z, min_distance)
     return True
 
+class TestEntity :
+    def __init__(self, name) : 
+        self.name = name
+
 def get_nearest_entity_where(agent, predicate, max_distance) : 
     """Get nearest entity which satisfies `predicate` validator within 'max_distance' blocks of the agent; call with get_nearest_entity_where(agent, predicate, max_distance)."""
     entity = None
     agent_pos = get_entity_position(agent.bot.entity)
     if agent_pos is not None : 
-        entity = agent.bot.nearestEntity(lambda et : predicate(et) and et.position is not None and agent_pos.distanceTo(et.position) < max_distance)
+        entities = get_nearest_entities(agent, max_distance, 64)
+        for et in entities :
+            if et is not None and predicate(et) == True :
+                entity = et 
+                break
     return entity
 
 def get_nearest_entities(agent, max_distance = 32, count = 16) : 
@@ -185,7 +193,7 @@ def get_nearest_freespace(agent, size = 1, distance = 8) :
 
 def search_entity(agent, entity_name, range = 64, min_distance = 2) :
     """Search for an entity named 'entity_name' within a given 'range' but farther than 'min_distance' from the agent; call with search_entity(agent, entity_name, range, min_distance)."""
-    entity = get_nearest_entity_where(agent, lambda et : et.name == entity_name, range)
+    entity = get_nearest_entity_where(agent, lambda et : entity_name in et.name, range)
     if entity is None :
         agent.bot.chat("I can't find any %s in %s blocks." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(range)))
         return False
@@ -194,7 +202,7 @@ def search_entity(agent, entity_name, range = 64, min_distance = 2) :
     if agent_pos is not None and entity_pos is not None :
         distance = agent_pos.distanceTo(entity_pos)
         agent.bot.chat("Found %s %s blocks away. I am going there." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(distance)))
-        go_to_position(agent, entity.position.x, entity.position.y, entity.position.z, min_distance)
+        go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, min_distance)
     return True
 
 def go_to_position(agent, x, y, z, closeness = 0) : 
@@ -378,7 +386,7 @@ def fight(agent, entity_name, kill = False) :
         agent.bot.modes.pause('cowardice')
         if entity_name in ["drowned", "cod", "salmon", "tropical_fish", "squid"] :
             agent.bot.modes.pause('self_preservation') 
-    entities = list(filter(lambda et: et.name == entity_name, get_nearest_entities(agent, 32)))
+    entities = list(filter(lambda et: entity_name in et.name, get_nearest_entities(agent, 32)))
     entity = entities[0] if len(entities) > 0 else None 
     if entity is not None :
         return attack_entity(agent, entity, kill)

@@ -159,9 +159,15 @@ def sizeof(js_mapping) :
     return length
 
 def mc_time_later(t1, t2) : 
-    if t2[0] >= t1[0] and t2[1] >= t1[1] and t2[2] >= t1[2] and t2[3] >= t1[3] : 
-        return False
-    return True
+    if t1[0] > t2[0] :
+        return True
+    elif t1[1] > t2[1] :
+        return True
+    elif t1[2] > t2[2] :
+        return True
+    elif t1[3] > t2[3] :
+        return True
+    return False 
 
 def rotate_x_z(x, z, orientation, sizex, sizez) :
     if orientation == 0 : 

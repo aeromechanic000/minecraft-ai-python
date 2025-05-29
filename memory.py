@@ -28,21 +28,19 @@ class Memory(object) :
 
     def save(self) : 
         if os.path.isdir(os.path.dirname(self.memory_path)) : 
-            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "skin_path" : self.skin_path, "records" : self.records[-10:]}, self.memory_path) 
+            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "skin_path" : self.skin_path, "records" : self.get_records(10, True)}, self.memory_path) 
         if os.path.isdir(os.path.dirname(self.history_path)) : 
             write_json({"records" : self.records}, self.history_path) 
     
     def get(self) : 
-        info = self.get_records_info(limit = 10)
+        info = self.get_records_info(10)
         info += "\n\n Here is a summary of earlier memory: %s" % self.summary
         return info
     
     def get_records_info(self, limit, exclude_summary = False) :
+        records = self.get_records(limit, exclude_summary) 
         info_list = []
-        for i in range(-1, - min(len(self.records), limit) - 1, -1) :
-            record = self.records[i]
-            if exclude_summary == True and self.last_summarize_record_time is not None and not mc_time_later(record["time"], self.last_summarize_record_time) :
-                break
+        for record in records :
             if record["type"] == "message" : 
                 info_list.append("[The %s-th day, %s:%s] Got message from \"%s\": \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
             elif record["type"] == "reflection" : 
@@ -52,6 +50,16 @@ class Memory(object) :
             elif record["type"] == "status" :
                 info_list.append("[The %s-th day, at time %s:%s] \"%s\" sends a message in chat: \"%s\"" % (record["time"][0], record["time"][1], record["time"][2], record["data"]["sender"], record["data"]["content"]))  
         return "\n".join(info_list)
+
+    def get_records(self, limit, exclude_summary = False) :
+        records = []
+        for i in range(-1, - min(len(self.records), limit) - 1, -1) :
+            record = self.records[i]
+            if exclude_summary == True and self.last_summarize_record_time is not None and not mc_time_later(record["time"], self.last_summarize_record_time) :
+                break
+            records.append(record)
+        records.reverse()
+        return records 
 
     def summarize(self, force = False) : 
         if force == True or len(self.get_out_of_summary_messages()) > 0 :
@@ -96,6 +104,7 @@ class Memory(object) :
     def update(self, record) : 
         record["time"] = self.agent.get_mc_time()
         self.records.append(record)
+        self.save()
     
     def get_out_of_summary_messages(self) : 
         messages = [] 

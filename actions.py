@@ -296,9 +296,9 @@ def validate_param(value, _type, domain = None) :
     valid_value = None
     if value is not None :
         try : 
-            if _type in ["string", "BlockName", "ItemName"] : 
+            if _type in ["string", "BlockName", "ItemName", "EntityName", ] : 
                 valid_value = str(value)
-            if _type == "bool" : 
+            elif _type == "bool" : 
                 valid_value = bool(value)
             elif _type == "float" : 
                 valid_value = float(value)
