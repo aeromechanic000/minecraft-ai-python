@@ -161,10 +161,16 @@ def sizeof(js_mapping) :
 def mc_time_later(t1, t2) : 
     if t1[0] > t2[0] :
         return True
+    elif t1[0] < t2[0] :
+        return False 
     elif t1[1] > t2[1] :
         return True
+    elif t1[1] < t2[1] :
+        return False 
     elif t1[2] > t2[2] :
         return True
+    elif t1[2] < t2[2] :
+        return False 
     elif t1[3] > t2[3] :
         return True
     return False 

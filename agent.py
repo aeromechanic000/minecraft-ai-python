@@ -381,6 +381,10 @@ This is essential because the new_action will result in generating a custom Pyth
                         break
                 if action is not None : 
                     action["perform"] = action_data["perform"]
+            else :
+                action = None
+        else :
+            action = None
         return action
 
     def get_provider_and_model(self, tag = None) :

@@ -74,10 +74,10 @@ def shoot_entity(agent, entity_name, kill = True) :
             bow_fight(agent, entity)
             time.sleep(0.5)
             if kill == True :
-                while any(et.id == entity.id for et in get_nearest_entities(agent, 32, 64)) and held_bow(agent) :
+                while any(et.id == entity.id for et in get_nearest_entities(agent, 48, 64)) and held_bow(agent) :
                     bow_fight(agent, entity)
                     time.sleep(0.5)
-                if any(et.id == entity.id for et in get_nearest_entities(agent, 32, 64)) :
+                if any(et.id == entity.id for et in get_nearest_entities(agent, 48, 64)) :
                     agent.bot.chat("I don't have enough arrows to kill \"%s\"." % get_entity_display_name(get_entity_id(entity_name)))
                 else :
                     agent.bot.chat("I killed \"%s\"." % get_entity_display_name(get_entity_id(entity_name)))

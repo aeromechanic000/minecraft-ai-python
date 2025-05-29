@@ -227,8 +227,13 @@ def go_to_player(agent, player_name, closeness = 1) :
     player = agent.bot.players[player_name]
     player_pos = get_entity_position(player.entity)
     if player_pos is not None :  
-        go_to_position(agent, player_pos.x, player_pos.y, player_pos.z, closeness)
         chat(agent, player_name, "I am moving to you.")
+        go_to_position(agent, player_pos.x, player_pos.y, player_pos.z, closeness)
+        agent_pos = get_entity_position(agent.bot.entity)
+        while agent_pos is not None and player_pos is not None and agent_pos.distanceTo(player_pos) > closeness + 3 : 
+            time.sleep(0.5) 
+            agent_pos = get_entity_position(agent.bot.entity)
+        chat(agent, player_name, "I am here.")
     else : 
         chat(agent, player_name, "I can't find where you are.")
 
@@ -711,10 +716,10 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
     if agent_pos is not None :
         pos_above = agent_pos.plus(vec3.Vec3(0,1,0))
         dont_move_for = ['torch', 'redstone_torch', 'redstone_wire', 'lever', 'button', 'rail', 'detector_rail', 'powered_rail', 'activator_rail', 'tripwire_hook', 'tripwire', 'water_bucket']
-        if block_type not in dont_move_for and agent_pos.distanceTo(target_block.position) < 1 or pos_above.distanceTo(target_block.position) < 1 :
+        if block_name not in dont_move_for and agent_pos.distanceTo(target_block.position) < 1 or pos_above.distanceTo(target_block.position) < 1 :
             # too close
             goal = pathfinder.goals.GoalNear(target_dest[0], target_dest[1], target_dest[2], 2)
-            nverted_goal = pathfinder.goals.GoalInvert(goal)
+            inverted_goal = pathfinder.goals.GoalInvert(goal)
             agent.bot.pathfinder.setMovements(pathfinder.Movements(agent.bot))
             agent.bot.pathfinder.setGoal(inverted_goal)
     agent_pos = get_entity_position(agent.bot.entity)

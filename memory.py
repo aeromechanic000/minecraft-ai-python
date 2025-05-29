@@ -55,7 +55,7 @@ class Memory(object) :
         records = []
         for i in range(-1, - min(len(self.records), limit) - 1, -1) :
             record = self.records[i]
-            if exclude_summary == True and self.last_summarize_record_time is not None and not mc_time_later(record["time"], self.last_summarize_record_time) :
+            if exclude_summary == True and self.last_summarize_record_time is not None and record["timelabel"] <= self.last_summarize_record_time :
                 break
             records.append(record)
         records.reverse()
@@ -64,6 +64,7 @@ class Memory(object) :
     def summarize(self, force = False) : 
         if force == True or len(self.get_out_of_summary_messages()) > 0 :
             add_log(title = self.agent.pack_message("Summarize memory."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
+            last_summarize_time = get_datetime_stamp() 
             prompt = self.build_prompt()
             add_log(title = self.agent.pack_message("Built prompt."), content = prompt, label = "memory", print = False)
             json_keys = {
@@ -93,7 +94,7 @@ class Memory(object) :
                 if summary is not None : 
                     self.summary = str(summary)
                     if len(self.records) > 0 :
-                        self.last_summarize_record_time = self.records[-1]["time"]
+                        self.last_summarize_record_time = last_summarize_time 
                     add_log(title = self.agent.pack_message("Memory summary updated."), content = self.summary, label = "memory")
                 if longterm_thinking is not None: 
                     self.longterm_thinking = str(longterm_thinking)
@@ -102,22 +103,16 @@ class Memory(object) :
                     self.save()
 
     def update(self, record) : 
-        record["time"] = self.agent.get_mc_time()
+        record["time"], record["timelabel"] = self.agent.get_mc_time(), get_datetime_stamp() 
         self.records.append(record)
         self.save()
     
     def get_out_of_summary_messages(self) : 
         messages = [] 
-        for i in range(-1, -len(self.records) - 1, -1) :
-            record = self.records[i]
-            if record["type"] in ["status", "report"] : 
-                continue
-            if record["type"] in ["message", "reflection"] : 
-                if self.last_summarize_record_time is None or mc_time_later(record["time"], self.last_summarize_record_time) :
-                    messages.append(record["data"])
-                else :
-                    break
-        messages.reverse()
+        records = self.get_records(10, True)
+        for record in records :
+            if record["type"] in ["message", "reflection"] :
+                messages.append(record["data"])
         return messages
     
     def build_prompt(self) : 

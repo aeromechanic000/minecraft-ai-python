@@ -24,7 +24,7 @@ Please follow the steps below:
 - Adjust Initiative Based on Personality: Refer to your personality profile (e.g., active vs. passive, teamwork-oriented vs. solo, builder vs. explorer).
     * If your current situation aligns with your preferences, you may take a more proactive role.
     * In that case, feel free to suggest a next step even if no one asked you to—but ideally, ask others for their opinion before proceeding.
-- Return Null if Idle: If there are no pending or paused tasks and nothing needs to be done, return a null message to indicate that no further reflection is needed for now.
+- Return Null if you decide to become Idle: If there are no pending or paused tasks and nothing needs to be done, return a null message to indicate that no further action is needed for now. For example, if you have finished all jobs and wait for further instructions, return null reflection to become idle. Only return a reflection with non-null content when you need to take some actions. 
 
 ## Bot's Status
 %s
@@ -319,6 +319,17 @@ def get_primary_actions() :
                 "message": {"type" : "string", "description" : "The message to send."},
             },
             "perform" : chat, 
+        },
+        {
+            "name" : "go_to_position", 
+            "description": "Go to the specified position.",
+            "params": {
+                "x": {"type" : "int", "description" : "The x coordinate of the position to go to."},
+                "y": {"type" : "int", "description" : "The y coordinate of the position to go to."},
+                "z": {"type" : "int", "description" : "The z coordinate of the position to go to."},
+                "closeness": {"type" : "float", "description" : "How close to get to the player. If no special reason, closeness should be set to 1."},
+            },
+            "perform" : go_to_position, 
         },
         {
             "name" : "go_to_player", 
