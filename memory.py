@@ -133,6 +133,7 @@ Given:
 Please:
 1. Generate a new summary that preserves important past information while integrating new, relevant updates from the recent history. Pay special attention to the following:
     - If there are any task requirements — including newly assigned tasks from other players or ongoing tasks that have not yet been completed — be sure to include them in the summary. This helps the bot stay aware of its current objectives and prevents forgetting unfinished work.
+    - In the end of the new summary, include a update of what the bot have just finished, and some hints for the next steps, if necessary. This helps the bot to plan its next actions based on the latest information.
 2. Generate a update of the longterm thinking, if necessary. Pay attention to the following: 
     - Only make changes if significant events have occurred that meaningfully impact the agent's behavior patterns or values;
     - The long-term thinking should remain relatively stable over time and reflect high-level intentions (e.g., a preference for collaboration, caution, or efficiency);
@@ -141,18 +142,15 @@ Please:
 ## Bot's Status
 %s
 
+## Long-term Thinking
+%s
+
 ## History Records
 %s
 
 ## Old Summary
 %s
-
-## Bot's Profile
-%s
-
-## Long-term Thinking
-%s
-''' % (self.get_status_info(), self.get_records_info(20), self.agent.configs.get("profile", "A smart minecraft AI"), self.longterm_thinking, self.summary)
+''' % (self.get_status_info(), self.longterm_thinking, self.get_records_info(20), self.summary)
         return prompt
     
     def get_status_info(self) :

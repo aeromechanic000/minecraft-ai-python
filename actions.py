@@ -26,13 +26,10 @@ Please follow the steps below:
     * In that case, feel free to suggest a next step even if no one asked you to—but ideally, ask others for their opinion before proceeding.
 - Return Null if Idle: If there are no pending or paused tasks and nothing needs to be done, return a null message to indicate that no further reflection is needed for now.
 
-## Bot's Profile
+## Bot's Status
 %s
 
 ## Long-term Thinking
-%s
-
-## Bot's Status
 %s
 
 ## History Records
@@ -40,7 +37,7 @@ Please follow the steps below:
 
 ## Memory Summary
 %s
-''' % (agent.get_status_info(), agent.memory.get_records_info(20), agent.configs.get("profile", "A smart minecraft AI"), agent.memory.longterm_thinking, agent.memory.summary)
+''' % (agent.get_status_info(), agent.memory.longterm_thinking, agent.memory.get_records_info(20),  agent.memory.summary)
 
     reminder_info = agent.get_plugin_reminder_info()
     if reminder_info is not None and len(reminder_info.strip()) > 0 :
