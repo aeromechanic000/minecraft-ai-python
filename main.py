@@ -1,5 +1,6 @@
 
 import os, multiprocessing, signal, subprocess
+import argparse, json
 
 from agent import *
 from utils import *
@@ -49,6 +50,11 @@ class Manager(object) :
         add_log(title = "Minecraft AI exit.", label = "system")
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Process agent profiles and other options")
+    parser.add_argument('--agents', nargs='+', type=str, help='Path to one or more agent profile JSON files')
+    args = parser.parse_args()
+
     for d in ["./logs", "./generated_actions"] : 
         if not os.path.isdir(d) : 
             os.mkdir(d)
@@ -61,4 +67,6 @@ if __name__ == "__main__":
             level = logging.DEBUG, 
     )
 
-    Manager(read_json("./settings.json")).start()
+    settings = read_json("./settings.json")
+    settings["agents"] = args.agents if args.agents is not None else settings["agents"] 
+    Manager(settings).start()

@@ -204,7 +204,7 @@ def get_item_crafting_recipes(item_name) :
             recipe[ingredient_name] += 1
         recipes.append([recipe, {"crafted_count" : r.result.count}])
 
-    recipts = sorted(recipts, key = functools.cmp_to_key(recipt_sort_by_common_items)) 
+    recipes = sorted(recipes, key = functools.cmp_to_key(recipt_sort_by_common_items)) 
     return recipes
 
 def recipt_sort_by_common_items(a, b) : 

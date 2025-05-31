@@ -166,7 +166,7 @@ def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temper
                 result["status"] = 3
                 result["error"] = "[%s] Reponse error: %s" % (
                     inspect.currentframe().f_code.co_name,
-                    response.getcode(),
+                    response.status_code,
                 )
         except Exception as e :
             result["status"] = 2
@@ -217,7 +217,7 @@ def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, 
             result["status"] = 1
             result["error"] = "[%s] Reponse error: %s" % (
                 inspect.currentframe().f_code.co_name,
-                response.getcode(),
+                response.status_code,
             )
     except Exception as e :
         result["status"] = 2
@@ -253,7 +253,7 @@ def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, t
                     result["message"] = response_data["choices"][0]["message"]["content"]
                 elif response_data["choices"][0]["message"].get("reasoning_content", None) is not None : 
                     result["message"] = response_data["choices"][0]["message"]["reasoning_content"]
-            if result["messages"] is None : 
+            if result["message"] is None : 
                 result["status"] = 1
                 result["error"] = "[%s] Invalid response data: %s" % (
                     inspect.currentframe().f_code.co_name,
@@ -263,7 +263,7 @@ def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, t
             result["status"] = 1
             result["error"] = "[%s] Reponse error: %s" % (
                 inspect.currentframe().f_code.co_name,
-                response.getcode(),
+                response.status_code,
             )
     except Exception as e :
         result["status"] = 2
@@ -275,7 +275,7 @@ def call_openai_api(url, token, model, prompt, images = None, max_tokens = 4096,
     payload = {
         "model" : model, 
         "input" : prompt,  
-        "max_completion_tokens" : max_tokens, 
+        "max_output_tokens" : max_tokens, 
         "temperature" : temperature,
         "stream" : False,
     }
@@ -306,7 +306,7 @@ def call_openai_api(url, token, model, prompt, images = None, max_tokens = 4096,
             result["status"] = 1
             result["error"] = "[%s] Reponse error: %s" % (
                 inspect.currentframe().f_code.co_name,
-                response.getcode(),
+                response.status_code,
             )
     except Exception as e :
         result["status"] = 2
@@ -350,7 +350,7 @@ def call_anthropic_api(url, token, model, prompt, images = None, max_tokens = 40
             result["status"] = 1
             result["error"] = "[%s] Reponse error: %s" % (
                 inspect.currentframe().f_code.co_name,
-                response.getcode(),
+                response.status_code,
             )
     except Exception as e :
         result["status"] = 2
@@ -395,7 +395,7 @@ def call_gemini_api(url, token, model, prompt, images = None, max_tokens = 4096,
             result["status"] = 1
             result["error"] = "[%s] Reponse error: %s" % (
                 inspect.currentframe().f_code.co_name,
-                response.getcode(),
+                response.status_code,
             )
     except Exception as e :
         result["status"] = 2

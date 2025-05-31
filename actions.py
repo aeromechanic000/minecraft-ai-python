@@ -395,7 +395,7 @@ def get_primary_actions() :
             "name" : "craft",
             "description" : "Craft the given recipe a given number of times.",
             "params" : {
-                "recipe_name": {"type" : "ItemName", "description" : "The name of the output item to craft."},
+                "item_name": {"type" : "ItemName", "description" : "The name of the output item to craft."},
                 "num" : {"type" : "int", "description" : "The number of times to craft the recipe. This is NOT the number of output items, as it may craft many more items depending on the recipe."},
             },
             "perform" : craft,

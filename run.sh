@@ -23,4 +23,4 @@ fi
 
 export PYTHONPATH=$PYTHONPATH:`pwd`
 
-python main.py
+python main.py $@

@@ -467,9 +467,9 @@ def craft(agent, item_name, num = 1) :
     crafting_table = None
     crafting_table_range = 32
 
-    if recipes is None or len(recipes) < 1 : 
+    if recipes is None or sizeof(recipes) < 1 : 
         recipes = agent.bot.recipesFor(get_item_id(item_name), None, 1, True)
-        if recipes is None or len(recipes) < 1 : 
+        if recipes is None or sizeof(recipes) < 1 : 
             agent.bot.chat("I don't have enough resources to craft %s." % item_name)
             return False
 
@@ -492,7 +492,7 @@ def craft(agent, item_name, num = 1) :
         else :
             recipes = agent.bot.recipesFor(get_item_id(item_name), None, 1, crafting_table)
 
-    if recipes is None or len(recipes) < 1 :
+    if recipes is None or sizeof(recipes) < 1 :
         return False 
     
     if crafting_table is not None : 
