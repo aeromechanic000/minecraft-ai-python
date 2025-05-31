@@ -1,4 +1,5 @@
 
+import threading
 from model import *
 from world import *
 from utils import *
@@ -6,8 +7,10 @@ from utils import *
 class Memory(object) : 
     def __init__(self, agent) : 
         self.agent = agent
+        self.summarize_thread = None
         self.records = []
         self.last_summarize_record_time = None
+        self.last_process_record_time = None
         self.summary, self.longterm_thinking, self.skin_path = "", "", None
         self.bot_path = os.path.join("bots", self.agent.configs["username"])
         if not os.path.isdir(self.bot_path) : 
@@ -62,7 +65,13 @@ class Memory(object) :
         return records 
 
     def summarize(self, force = False) : 
-        if force == True or len(self.get_out_of_summary_messages()) > 0 :
+        if self.summarize_thread is not None : 
+            self.summarize_thread.join()
+        self.summarize_thread = threading.Thread(target = self.async_summarize, args=(force, ))
+        self.summarize_thread.start()
+
+    def async_summarize(self, force = False) : 
+        if force == True or len(self.get_messages_to_work()) > 0 :
             add_log(title = self.agent.pack_message("Summarize memory."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
             last_summarize_time = get_datetime_stamp() 
             prompt = self.build_prompt()
@@ -107,12 +116,22 @@ class Memory(object) :
         self.records.append(record)
         self.save()
     
-    def get_out_of_summary_messages(self) : 
+    def clear_messages_to_work(self) : 
+        if len(self.records) > 0 :
+            self.last_process_record_time = self.records[-1]["timelabel"]
+        else :
+            self.last_process_record_time = None
+
+    def get_messages_to_work(self) : 
         messages = [] 
         records = self.get_records(10, True)
-        for record in records :
+        for i in range(-1, - len(records) - 1, -1) :
+            record = records[i]
+            if self.last_process_record_time is not None and record["timelabel"] <= self.last_process_record_time :
+                break
             if record["type"] in ["message", "reflection"] :
                 messages.append(record["data"])
+        messages.reverse()
         return messages
     
     def build_prompt(self) : 

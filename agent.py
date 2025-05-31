@@ -125,12 +125,12 @@ class Agent(object) :
                     add_log(title = self.pack_message("Current working process is not finished."), content = "working process: %s" % self.working_process, label = "warning")
                     return 
                     
-                messages = self.memory.get_out_of_summary_messages()
+                messages = self.memory.get_messages_to_work()
                 if len(messages) < 1 :
                     add_log(title = self.pack_message("There is no messages to work on."), label = "warning")
                     return
-                self.memory.summarize()
 
+                self.memory.summarize()
                 self.working_process = get_random_label() 
 
                 prompt = self.build_prompt(messages) 
@@ -173,6 +173,7 @@ class Agent(object) :
                 provider, model = self.get_provider_and_model("action")
                 llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
                 add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
+                self.memory.clear_messages_to_work()
                 data = llm_result["data"]
                 if data is not None :
                     status_summary = data.get("status", None)
@@ -191,7 +192,7 @@ class Agent(object) :
                     add_log(title = self.pack_message("No data returned from LLM."), label = "warning")
 
                 self.working_process = None
-                messages = self.memory.get_out_of_summary_messages()
+                messages = self.memory.get_messages_to_work()
                 if len(messages) > 0 :
                     self.bot.emit("work")
                 elif self.self_driven_thinking_timer is not None :
@@ -204,7 +205,7 @@ class Agent(object) :
                 except Exception as e : 
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
             
-            messages = self.memory.get_out_of_summary_messages()
+            messages = self.memory.get_messages_to_work()
             if len(messages) > 0 :
                 self.bot.chat("Found task that is not finished.")
                 self.bot.emit("work")
@@ -233,8 +234,9 @@ Important Guidelines:
 3. You should consider the latest message with the highest priority when generating the action.
 4. When choosing an action, consider all available actions and select the one that is most consistent with the task requirement. 
 5. When choosing an action, prioritize non-chat actions to make sure the task progresses. 
-6. When is is required to perform some moves, choose an action to response, and `chat` should be the last option.
-7. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
+6. When the bot is asked to move to a player, use 'go_to_player" with higher priority over 'go_to_position' to ensure the bot can reach the player.
+7. When is is required to perform some moves, choose an action to response, and `chat` should be the last option.
+8. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
 
 The selected action's parameters must follow the types and domains described under 'Available Actions'.
 

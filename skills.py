@@ -413,7 +413,7 @@ def attack_entity(agent, entity, kill = False) :
             agent.bot.chat("I attacked %s." % entity.name)
         else :
             agent.bot.pvp.attack(entity)
-            while entity in get_nearest_entities(agent, 24, 64) :
+            while any(et.id == entity.id for et in get_nearest_entities(agent, 24, 64)) :
                 time.sleep(1.0)
                 if agent.bot.interrupt_code :
                     agent.bot.pvp.stop()

@@ -1,7 +1,6 @@
 
 import os, json, inspect, re, base64
-import json5
-import urllib.request
+import json5, curl_cffi
 
 from utils import *
 
@@ -122,17 +121,24 @@ The result should be formatted in **JSON** dictionary and enclosed in **triple b
     elif provider == "Pollinations" :
         url = providers["Pollinations"]["url"]
         result = call_pollinations_api(url, model, prompt, images, max_tokens, temperature)
-    elif provider in ["Doubao", "Qwen", "OpenRouter", ] :
+    elif provider in ["OpenAI", "Anthropic", "Gemini", "DeepSeek", "Doubao", "Qwen", "OpenRouter", ] :
         url = providers[provider]["url"]
         token = providers[provider]["token"]
         if len(token.strip()) < 1 : 
             token = os.environ.get("%s_API_KEY" % provider.upper())
-        result = call_open_api(url, token, model, prompt, images, max_tokens, temperature)
+        if provider in ["DeepSeek", "Doubao", "Qwen", "OpenRouter", ] :
+            result = call_open_api(url, token, model, prompt, images, max_tokens, temperature)
+        elif provider == "OpenAI" : 
+            result = call_openai_api(url, token, model, prompt, images, max_tokens, temperature)
+        elif provider == "Anthropic" : 
+            result = call_anthropic_api(url, token, model, prompt, images, max_tokens, temperature)
+        elif provider == "Gemini" : 
+            result = call_gemini_api(url, token, model, prompt, images, max_tokens, temperature)
     else :
         result["status"] = 1
         result["error"] = "[%s] Invalid provider: %s" % (inspect.currentframe().f_code.co_name, provider)
 
-    if result["status"] < 1 and json_keys is not None :
+    if result["status"] < 1 and result["message"] is not None and json_keys is not None :
         _, data = split_content_and_json(result["message"])
         result["data"] = extract_data(data, json_keys)
     else :
@@ -140,22 +146,21 @@ The result should be formatted in **JSON** dictionary and enclosed in **triple b
     return result
 
 def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
-    result = {"message" : "", "status" : 0, "error" : None}
-    data = {"model" : model, "prompt" : prompt, "max_tokens" : max_tokens, "temperature" : temperature, "stream" : False}
+    result = {"message" : None, "status" : 0, "error" : None}
+    payload = {"model" : model, "prompt" : prompt, "max_tokens" : max_tokens, "temperature" : temperature, "stream" : False}
     if images is not None :
-        data["images"] = []
+        payload["images"] = []
         for image in images :
-            data["images"].append(encode_file_to_base64(image))
+            payload["images"].append(encode_file_to_base64(image))
     if len(url.strip()) > 0 :
         try :
-            request = urllib.request.Request(
+            response = curl_cffi.requests.post(
                 url,
                 headers = {"Content-Type" : "application/json"},
-                data = json.dumps(data).encode("utf-8"),
+                json = payload,
             )
-            response = urllib.request.urlopen(request)
-            if response.getcode() == 200 :
-                response_data = json.loads(response.read().decode('utf-8'))
+            if response.status_code == 200 :
+                response_data = response.json()
                 result["message"] = response_data.get("response", "")
             else :
                 result["status"] = 3
@@ -172,8 +177,8 @@ def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temper
     return result
 
 def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
-    result = {"response" : "", "status" : 0, "error" : None}
-    data = {
+    result = {"message" : None, "status" : 0, "error" : None}
+    payload = {
         "messages" : [{"role" : "user", "content" : prompt}], 
         "model" : model, 
         "max_tokens" : max_tokens, 
@@ -183,23 +188,31 @@ def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, 
     }
 
     if images is not None :
-        data["images"] = []
+        payload["images"] = []
         for image in images :
-            data["images"].append(encode_file_to_base64(image))
+            payload["images"].append(encode_file_to_base64(image))
     try :
-        request = urllib.request.Request(
+        response = curl_cffi.requests.post(
             url,
             headers = {
                 "Content-Type" : "application/json",
-                "User-Agent" : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 "Accept" : "application/json, text/plain, */*",
             },
-            data = json.dumps(data).encode("utf-8"),
+            json = payload,
         )
-        response = urllib.request.urlopen(request)
-        if response.getcode() == 200 :
-            response_data = response.read().decode('utf-8')
-            result["message"] = response_data
+        if response.status_code == 200 :
+            response_data = response.json()
+            if "choices" in response_data.keys() : 
+                if response_data["choices"][0]["message"].get("content", None) is not None : 
+                    result["message"] = response_data["choices"][0]["message"]["content"]
+                elif response_data["choices"][0]["message"].get("reasoning_content", None) is not None : 
+                    result["message"] = response_data["choices"][0]["message"]["reasoning_content"]
+            if result["message"] is None :
+                result["status"] = 1
+                result["error"] = "[%s] Invalid response data: %s" % (
+                    inspect.currentframe().f_code.co_name,
+                    response_data,
+                )
         else :
             result["status"] = 1
             result["error"] = "[%s] Reponse error: %s" % (
@@ -212,8 +225,8 @@ def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, 
     return result
 
 def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
-    result = {"response" : "", "status" : 0, "error" : None}
-    data = {
+    result = {"message" : None, "status" : 0, "error" : None}
+    payload = {
         "model" : model, 
         "messages" : [{"role" : "user", "content" : prompt}],  
         "max_tokens" : max_tokens, 
@@ -221,23 +234,157 @@ def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, t
         "stream" : False,
     }
     if images is not None :
-        data["images"] = []
+        payload["images"] = []
         for image in images :
-            data["images"].append(encode_file_to_base64(image))
+            payload["images"].append(encode_file_to_base64(image))
     try :
-        request = urllib.request.Request(
+        response = curl_cffi.requests.post(
             url,
             headers = {
                 "Authorization": "Bearer %s" % token,
                 "Content-Type" : "application/json",
             },
-            data = json.dumps(data).encode("utf-8"),
+            json = payload,
         )
-        response = urllib.request.urlopen(request)
-        if response.getcode() == 200 :
-            response_data = json.loads(response.read().decode('utf-8'))
+        if response.status_code == 200 :
+            response_data = response.json() 
             if "choices" in response_data.keys() : 
-                result["message"] = response_data["choices"][0]["message"]["content"]
+                if response_data["choices"][0]["message"].get("content", None) is not None : 
+                    result["message"] = response_data["choices"][0]["message"]["content"]
+                elif response_data["choices"][0]["message"].get("reasoning_content", None) is not None : 
+                    result["message"] = response_data["choices"][0]["message"]["reasoning_content"]
+            if result["messages"] is None : 
+                result["status"] = 1
+                result["error"] = "[%s] Invalid response data: %s" % (
+                    inspect.currentframe().f_code.co_name,
+                    response_data,
+                )
+        else :
+            result["status"] = 1
+            result["error"] = "[%s] Reponse error: %s" % (
+                inspect.currentframe().f_code.co_name,
+                response.getcode(),
+            )
+    except Exception as e :
+        result["status"] = 2
+        result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
+    return result
+
+def call_openai_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+    result = {"message" : None, "status" : 0, "error" : None}
+    payload = {
+        "model" : model, 
+        "input" : prompt,  
+        "max_completion_tokens" : max_tokens, 
+        "temperature" : temperature,
+        "stream" : False,
+    }
+    if images is not None :
+        payload["images"] = []
+        for image in images :
+            payload["images"].append(encode_file_to_base64(image))
+    try :
+        response = curl_cffi.requests.post(
+            url,
+            headers = {
+                "Authorization": "Bearer %s" % token,
+                "Content-Type" : "application/json",
+            },
+            json = payload,
+        )
+        if response.status_code == 200 :
+            response_data = response.json()
+            if "output" in response_data.keys() : 
+                result["message"] = response_data["output"][0]["content"][0]["text"]
+            else : 
+                result["status"] = 1
+                result["error"] = "[%s] Invalid response data: %s" % (
+                    inspect.currentframe().f_code.co_name,
+                    response_data,
+                )
+        else :
+            result["status"] = 1
+            result["error"] = "[%s] Reponse error: %s" % (
+                inspect.currentframe().f_code.co_name,
+                response.getcode(),
+            )
+    except Exception as e :
+        result["status"] = 2
+        result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
+    return result
+
+def call_anthropic_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+    result = {"message" : None, "status" : 0, "error" : None}
+    payload = {
+        "model" : model, 
+        "messages" : [{"role" : "user", "content" : prompt}],  
+        "max_tokens" : max_tokens, 
+        "temperature" : temperature,
+        "stream" : False,
+    }
+    if images is not None :
+        payload["images"] = []
+        for image in images :
+            payload["images"].append(encode_file_to_base64(image))
+    try :
+        response = curl_cffi.requests.post(
+            url,
+            headers = {
+                "x-api-key": token,
+                "anthropic-version": "2023-06-01",
+                "Content-Type" : "application/json",
+            },
+            json = payload,
+        )
+        if response.status_code == 200 :
+            response_data = response.json()
+            if "content" in response_data.keys() : 
+                result["message"] = response_data["content"][0]["text"]
+            else : 
+                result["status"] = 1
+                result["error"] = "[%s] Invalid response data: %s" % (
+                    inspect.currentframe().f_code.co_name,
+                    response_data,
+                )
+        else :
+            result["status"] = 1
+            result["error"] = "[%s] Reponse error: %s" % (
+                inspect.currentframe().f_code.co_name,
+                response.getcode(),
+            )
+    except Exception as e :
+        result["status"] = 2
+        result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
+    return result
+
+def call_gemini_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+    result = {"message" : None, "status" : 0, "error" : None}
+    url = "%s/models/%s:generateContent?key=%s" % (url, model, token)
+    payload = {
+        "contents" : {
+            "parts" : [{"text" : prompt}], 
+        },  
+        "generationConfig": {
+            "maxOupputTokens" : max_tokens, 
+            "temperature" : temperature,
+        },
+    }
+    if images is not None :
+        payload["images"] = []
+        for image in images :
+            payload["contents"]["parts"][0]["images"].append(encode_file_to_base64(image))
+    try :
+        response = curl_cffi.requests.post(
+            url,
+            headers = {
+                "Content-Type" : "application/json",
+            },
+            json = payload,
+        )
+        if response.status_code == 200 :
+            response_data = response.json()
+            if "candidates" in response_data.keys() : 
+                result["message"] = response_data["candidates"][0]["content"]["parts"][0]["text"]
             else : 
                 result["status"] = 1
                 result["error"] = "[%s] Invalid response data: %s" % (
