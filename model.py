@@ -121,19 +121,19 @@ The result should be formatted in **JSON** dictionary and enclosed in **triple b
     elif provider == "Pollinations" :
         url = providers["Pollinations"]["url"]
         result = call_pollinations_api(url, model, prompt, images, max_tokens, temperature)
-    elif provider in ["OpenAI", "Anthropic", "Gemini", "DeepSeek", "Doubao", "Qwen", "OpenRouter", ] :
+    elif provider in ["OpenAI", "Anthropic", "Gemini", "DeepSeek", "Doubao", "Qwen", "OpenRouter", "Airforce"] :
         url = providers[provider]["url"]
-        token = providers[provider]["token"]
-        if len(token.strip()) < 1 : 
-            token = os.environ.get("%s_API_KEY" % provider.upper())
+        api_key = providers[provider]["api_key"]
+        if len(api_key.strip()) < 1 : 
+            api_key = os.environ.get("%s_API_KEY" % provider.upper())
         if provider in ["DeepSeek", "Doubao", "Qwen", "OpenRouter", ] :
-            result = call_open_api(url, token, model, prompt, images, max_tokens, temperature)
+            result = call_open_api(url, api_key, model, prompt, images, max_tokens, temperature)
         elif provider == "OpenAI" : 
-            result = call_openai_api(url, token, model, prompt, images, max_tokens, temperature)
+            result = call_openai_api(url, api_key, model, prompt, images, max_tokens, temperature)
         elif provider == "Anthropic" : 
-            result = call_anthropic_api(url, token, model, prompt, images, max_tokens, temperature)
+            result = call_anthropic_api(url, api_key, model, prompt, images, max_tokens, temperature)
         elif provider == "Gemini" : 
-            result = call_gemini_api(url, token, model, prompt, images, max_tokens, temperature)
+            result = call_gemini_api(url, api_key, model, prompt, images, max_tokens, temperature)
     else :
         result["status"] = 1
         result["error"] = "[%s] Invalid provider: %s" % (inspect.currentframe().f_code.co_name, provider)
@@ -224,7 +224,7 @@ def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, 
         result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
     return result
 
-def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+def call_free_api(url, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     result = {"message" : None, "status" : 0, "error" : None}
     payload = {
         "model" : model, 
@@ -241,7 +241,6 @@ def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, t
         response = curl_cffi.requests.post(
             url,
             headers = {
-                "Authorization": "Bearer %s" % token,
                 "Content-Type" : "application/json",
             },
             json = payload,
@@ -270,7 +269,54 @@ def call_open_api(url, token, model, prompt, images = None, max_tokens = 4096, t
         result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
     return result
 
-def call_openai_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+
+def call_open_api(url, api_key, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+    result = {"message" : None, "status" : 0, "error" : None}
+    payload = {
+        "model" : model, 
+        "messages" : [{"role" : "user", "content" : prompt}],  
+        "max_tokens" : max_tokens, 
+        "temperature" : temperature,
+        "stream" : False,
+    }
+    if images is not None :
+        payload["images"] = []
+        for image in images :
+            payload["images"].append(encode_file_to_base64(image))
+    try :
+        response = curl_cffi.requests.post(
+            url,
+            headers = {
+                "Authorization": "Bearer %s" % api_key,
+                "Content-Type" : "application/json",
+            },
+            json = payload,
+        )
+        if response.status_code == 200 :
+            response_data = response.json() 
+            if "choices" in response_data.keys() : 
+                if response_data["choices"][0]["message"].get("content", None) is not None : 
+                    result["message"] = response_data["choices"][0]["message"]["content"]
+                elif response_data["choices"][0]["message"].get("reasoning_content", None) is not None : 
+                    result["message"] = response_data["choices"][0]["message"]["reasoning_content"]
+            if result["message"] is None : 
+                result["status"] = 1
+                result["error"] = "[%s] Invalid response data: %s" % (
+                    inspect.currentframe().f_code.co_name,
+                    response_data,
+                )
+        else :
+            result["status"] = 1
+            result["error"] = "[%s] Reponse error: %s" % (
+                inspect.currentframe().f_code.co_name,
+                response.status_code,
+            )
+    except Exception as e :
+        result["status"] = 2
+        result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
+    return result
+
+def call_openai_api(url, api_key, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     result = {"message" : None, "status" : 0, "error" : None}
     payload = {
         "model" : model, 
@@ -287,7 +333,7 @@ def call_openai_api(url, token, model, prompt, images = None, max_tokens = 4096,
         response = curl_cffi.requests.post(
             url,
             headers = {
-                "Authorization": "Bearer %s" % token,
+                "Authorization": "Bearer %s" % api_key,
                 "Content-Type" : "application/json",
             },
             json = payload,
@@ -357,9 +403,9 @@ def call_anthropic_api(url, token, model, prompt, images = None, max_tokens = 40
         result["error"] = "[%s] Exception: %s" % (inspect.currentframe().f_code.co_name, e)
     return result
 
-def call_gemini_api(url, token, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
+def call_gemini_api(url, api_key, model, prompt, images = None, max_tokens = 4096, temperature = 0.9) :
     result = {"message" : None, "status" : 0, "error" : None}
-    url = "%s/models/%s:generateContent?key=%s" % (url, model, token)
+    url = "%s/models/%s:generateContent?key=%s" % (url, model, api_key)
     payload = {
         "contents" : {
             "parts" : [{"text" : prompt}], 

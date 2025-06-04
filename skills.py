@@ -210,6 +210,7 @@ def go_to_position(agent, x, y, z, closeness = 0) :
     try :
         agent.bot.pathfinder.setMovements(pathfinder.Movements(agent.bot))
         agent.bot.pathfinder.setGoal(pathfinder.goals.GoalNear(x, y, z, closeness)) 
+        time.sleep(0.1)
         while agent.bot.pathfinder.isMoving() :
             time.sleep(0.2)
     except Exception as e : 
@@ -279,6 +280,9 @@ def break_block_at(agent, x, y, z) :
             movements.allow1by1towers = False
             agent.bot.pathfinder.setMovements(movements)
             agent.bot.pathfinder.setGoal(pathfinder.goals.GoalNear(pos.x, pos.y, pos.z, 4))
+            time.sleep(0.1)
+            while agent.bot.pathfinder.isMoving() :
+                time.sleep(0.2)
 
         if agent.bot.game is not None and agent.bot.game.gameMode != "creative" :
             agent.bot.tool.equipForBlock(block)
@@ -722,6 +726,10 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
             inverted_goal = pathfinder.goals.GoalInvert(goal)
             agent.bot.pathfinder.setMovements(pathfinder.Movements(agent.bot))
             agent.bot.pathfinder.setGoal(inverted_goal)
+            time.sleep(0.1)
+            while agent.bot.pathfinder.isMoving() :
+                time.sleep(0.2)
+
     agent_pos = get_entity_position(agent.bot.entity)
     if agent_pos is not None and agent_pos.distanceTo(vec3.Vec3(*target_dest)) > 4.5 :
         go_to_position(agent, target_dest[0], target_dest[1], target_dest[2], 2)
