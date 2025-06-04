@@ -128,7 +128,7 @@ More detailed information of Minecraft AI-Python can be found in the [Documentat
 
 ## Citation
 
-[Minecraft AI Whitepapers](https://github.com/aeromechanic000/minecraft-ai-whitepapers) 
+[Minecraft AI Whitepapers](https://github.com/aeromechanic000/minecraft-ai-whitepaper) 
 - [Minecraft AI: Toward Embodied Turing Test Through AI Characters](https://github.com/aeromechanic000/minecraft-ai-whitepaper/blob/main/whitepapers/minecraft_ai_whitepaper-toward_embodied_turing_test_through_ai_characters.pdf)
 
 ```
@@ -136,6 +136,6 @@ More detailed information of Minecraft AI-Python can be found in the [Documentat
     author = {Minecraft AI},
     title = {Minecraft AI: Toward Embodied Turing Test Through AI Characters},
     year = {2025},
-    url = {https://github.com/aeromechanic000/minecraft-ai-python}
+    url = {https://github.com/aeromechanic000/minecraft-ai-whitepaper}
 }
 ```
