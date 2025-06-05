@@ -172,7 +172,7 @@ def get_nearest_entities(agent, max_distance = 32, count = 16) :
 def get_nearest_freespace(agent, size = 1, distance = 8) :
     """Find the nearest free space of given 'size' within 'distance' blocks for agent to move or act; call with get_nearest_freespace(agent, size, distance).""" 
     empty_positions = agent.bot.findBlocks({
-        "matching" : lambda block : block is not None and block.name in get_empty_block_names(),
+        "matching" : list(map(get_block_id, get_empty_block_names())),
         "maxDistance" : distance,
         "count" : 1000,
     })
@@ -463,7 +463,7 @@ def equip_highest_attack(agent) :
 def craft(agent, item_name, num = 1) :
     """Craft 'num' items of 'item_name' if materials and recipe are available; call with craft(agent, item_name, num)."""
     placed_table = False
-    if len(get_item_crafting_recipes(item_name)) < 1 : 
+    if not get_item_crafting_recipes(item_name) or len(get_item_crafting_recipes(item_name)) < 1 :
         agent.bot.chat("I don't have crafting recipe for %s." % item_name)
         return False
 
@@ -483,13 +483,14 @@ def craft(agent, item_name, num = 1) :
             if has_table == True :
                 pos = get_nearest_freespace(agent, 1, 6)
                 if pos is not None :
-                    place_block("crafting_table", pos.x, pos.y, pos.z)
+                    place_block(agent, "crafting_table", pos.x, pos.y, pos.z)
                     crafting_table = get_nearest_block(agent, "crafting_table", crafting_table_range)
                     if crafting_table is not None :
-                        recipes = agent.bot.recipesFor(agent, get_item_id(item_name), None, 1, crafting_table)
+                        recipes = agent.bot.recipesFor(get_item_id(item_name), None, 1, crafting_table)
                         placed_table = True
-                agent.bot.chat("There is no space to place the crafting table.")
-                return False
+                else:
+                    agent.bot.chat("There is no space to place the crafting table.")
+                    return False
             else :
                 agent.bot.chat("I don't have any crafting table.")
                 return False
@@ -516,7 +517,7 @@ def craft(agent, item_name, num = 1) :
     else :
         agent.bot.chat("I have crafted %s %s." % (num, item_name))
     if placed_table :
-        collect_blocks('crafting_table', 1)
+        collect_blocks(agent, 'crafting_table', 1)
 
     # agent.bot.armorManager.equipAll(); 
     return True
@@ -543,7 +544,7 @@ def collect_blocks(agent, block_name, num, exclude = None) :
     collected, action_num = 0, 0
     while collected < num :
         action_num += 1
-        blocks = get_nearest_blocks(agent, block_names = block_names, max_distance = 512, count = 16)
+        blocks = get_nearest_blocks(agent, block_names = block_names, max_distance = 64, count = 16)
         if exclude is not None and isinstance(exclude, list) : 
             blocks = list(filter(lambda block : all([block.position.x != position.x or block.position.y != position.y or block.position.z != position.z for position in exclude]), blocks))
         movements = pathfinder.Movements(agent.bot)
