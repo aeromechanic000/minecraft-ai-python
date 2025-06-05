@@ -120,11 +120,21 @@ def get_nearest_block(agent, block_name, max_distance = 64) :
 
 def get_nearest_item(agent, distance = 1) :
     """Find and return the closest dropped item entity within 'distance' blocks; call with get_nearest_item(agent, distance)."""
-    entity = None 
-    agent_pos = get_entity_position(agent.bot.entity)
-    if agent_pos is not None : 
-        entity = agent.bot.nearestEntity(lambda et : et.name == "item" and et.position is not None and agent_pos.distanceTo(et.position) < distance)
-    return entity
+    nearest_item = None
+    nearest_distance = distance
+    for entity_id in agent.bot.entities :
+        entity = agent.bot.entities[entity_id]
+        if not entity :  # Entity can become None if picked up during iteration
+            continue
+        if entity.name == "item" :
+            items_pos = get_entity_position(entity)
+            agent_pos = get_entity_position(agent.bot.entity)
+            if items_pos is not None and agent_pos is not None :
+                dist = items_pos.distanceTo(agent_pos)
+                if dist <= nearest_distance :
+                    nearest_distance = dist
+                    nearest_item = entity
+    return nearest_item
 
 def search_block(agent, block_name, range = 64, min_distance = 2) :
     """Search the world for a block named 'block_name' within a given 'range' but at least 'min_distance' away from the agent; call with search_block(agent, block_name, range, min_distance)."""
