@@ -210,6 +210,7 @@ def get_item_crafting_recipes(item_name) :
 def recipt_sort_by_common_items(a, b) : 
     common_items = ['oak_planks', 'oak_log', 'coal', 'cobblestone']
     common_count_a = 0
+    common_count_b = 0
     for key, value in a[0].items() : 
         if key in common_items : 
             common_count_a += value
@@ -236,7 +237,7 @@ def ingredients_from_prismarine_recipe(recipe) :
             ingredient_name = get_item_name(ingredient.id)
             if ingredient_name not in required_ingredients.keys() :
                 required_ingredients[ingredient_name] = 0
-            required_ingredients[ingredient_name] += ingredient.count
+            required_ingredients[ingredient_name] -= ingredient.count
 
     return required_ingredients
 
