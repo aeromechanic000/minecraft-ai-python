@@ -155,6 +155,11 @@ Here’s a minimal example of `max.json`:
 }
 ```
 
+🛎️ **It is recommended** to set `self_driven_thinking_timer` to an integer such as `100` or `1000`.
+When `self_driven_thinking_timer` is not `null`, the bot will perform a reflection step every time it completes an action. Additionally, this timer serves as a delay before triggering autonomous reflection when the bot is idle.
+The timer value represents the number of laps the bot should wait. A lap refers to one interval between two consecutive "time" events in the Mineflayer framework, which occurs approximately every `20` game ticks.
+Since there are about `10,000` ticks per hour in Minecraft, you can estimate how long each interval lasts in real-world time by doing the math based on your `self_driven_thinking_timer` value.
+
 > 🔍 Explore more sample profiles in the `profiles/` directory.
 
 ### 5. Configure AI Model Access
