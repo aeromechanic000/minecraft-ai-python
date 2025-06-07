@@ -1,2 +1,0 @@
-
-# Minecraft AI - Python

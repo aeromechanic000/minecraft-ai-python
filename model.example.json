@@ -1,0 +1,40 @@
+{
+    "Ollama": {
+        "url": "http://127.0.0.1:11434/api/generate"
+    },
+    "DeepSeek": {
+        "api_key": "",
+        "url": "https://api.deepseek.com/chat/completions"
+    },
+    "OpenAI": {
+        "api_key": "",
+        "url": "https://api.openai.com/v1/responses"
+    },
+    "Anthropic": {
+        "api_key": "",
+        "url": "https://api.anthropic.com/v1/messages"
+    },
+    "Google": {
+        "api_key": "",
+        "url": "https://generativelanguage.googleapis.com/v1beta"
+    },
+    "Qwen": {
+        "api_key": "",
+        "url" : "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions/"
+    },
+    "OpenRouter": {
+        "api_key": "",
+        "url" : "https://openrouter.ai/api/v1/chat/completions"
+    },
+    "Airforce" : {
+        "api_key" : "",
+        "url" : "https://api.airforce/v1/chat/completions"
+    },
+    "Doubao" : {
+        "api_key" : "",
+        "url" : "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+    },
+    "Pollinations" : {
+        "url" : "https://text.pollinations.ai/openai"
+    } 
+}

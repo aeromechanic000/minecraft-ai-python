@@ -121,7 +121,7 @@ The result should be formatted in **JSON** dictionary and enclosed in **triple b
     elif provider == "Pollinations" :
         url = providers["Pollinations"]["url"]
         result = call_pollinations_api(url, model, prompt, images, max_tokens, temperature)
-    elif provider in ["OpenAI", "Anthropic", "Gemini", "DeepSeek", "Doubao", "Qwen", "OpenRouter", "Airforce"] :
+    elif provider in ["OpenAI", "Anthropic", "Google", "DeepSeek", "Doubao", "Qwen", "OpenRouter", "Airforce"] :
         url = providers[provider]["url"]
         api_key = providers[provider]["api_key"]
         if len(api_key.strip()) < 1 : 
@@ -132,7 +132,7 @@ The result should be formatted in **JSON** dictionary and enclosed in **triple b
             result = call_openai_api(url, api_key, model, prompt, images, max_tokens, temperature)
         elif provider == "Anthropic" : 
             result = call_anthropic_api(url, api_key, model, prompt, images, max_tokens, temperature)
-        elif provider == "Gemini" : 
+        elif provider == "Google" : 
             result = call_gemini_api(url, api_key, model, prompt, images, max_tokens, temperature)
     else :
         result["status"] = 1
