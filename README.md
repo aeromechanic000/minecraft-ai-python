@@ -8,6 +8,8 @@ More detailed information can be found in [Minecraft AI Whitepapers and Technica
 
 - [Minecraft AI: Toward Embodied Turing Test Through AI Characters](https://github.com/aeromechanic000/minecraft-ai-whitepaper/blob/main/whitepapers/minecraft_ai_whitepaper-toward_embodied_turing_test_through_ai_characters.pdf)
 
+🧜 **Meet Max**, our new AI assistant for the Minecraft AI community! Ask questions, get started with AIC profiles, or explore tutorials — Max is here to help: [https://www.coze.com/s/ZmFp9aCtM/](https://www.coze.com/s/ZmFp9aCtM/)
+
 🦾 Minecraft AI-Python is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
 
 <a href="https://discord.gg/RKjspnTBmb" target="_blank"><img src="https://s2.loli.net/2025/04/18/CEjdFuZYA4pKsQD.png" alt="Official Discord Server" width="180" height="32"></a>
