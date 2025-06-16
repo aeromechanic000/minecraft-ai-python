@@ -29,15 +29,9 @@ Please follow the steps below:
 ## Bot's Status
 %s
 
-## Long-term Thinking
+## Bot's Memory
 %s
-
-## History Records
-%s
-
-## Memory Summary
-%s
-''' % (agent.get_status_info(), agent.memory.longterm_thinking, agent.memory.get_records_info(20),  agent.memory.summary)
+''' % (agent.get_status_info(), agent.memory.get(20))
 
     reminder_info = agent.get_plugin_reminder_info()
     if reminder_info is not None and len(reminder_info.strip()) > 0 :
@@ -399,6 +393,15 @@ def get_primary_actions() :
                 "num" : {"type" : "int", "description" : "The number of times to craft the recipe. This is NOT the number of output items, as it may craft many more items depending on the recipe."},
             },
             "perform" : craft,
+        },
+        {
+            "name": "remember",
+            "description": "Save facts and information in the 'Memory Bank'. The agent can remember a limited number of facts, so use this wisely; if there is already a similar 'key' in the 'Memory Bank', update existing facts instead of creating new ones.",
+            "params": {
+                "key": { "type": "string", "description": "A key in string format to describe the topic"}, 
+                "value": { "type": "string", "description": "A value string describe the fact or information to remember"}, 
+            },
+            "perform": remember, 
         },
         {
             "name": "new_action",

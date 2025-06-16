@@ -4,8 +4,10 @@
     "minecraft_version" : "1.21.1",
     "auth": "offline",
     "insecure_coding_rounds" : 0,
+    "load_memory" : false,
+    "memory_bank_size" : 20,
     "ignore_actions" : [], 
     "ignore_messages" : [],
-    "plugins" : ["ShootWithBowAndArrow"],
+    "plugins" : [],
     "agents" : ["./profiles/max.json"]
 }

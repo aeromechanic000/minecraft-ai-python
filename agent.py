@@ -184,6 +184,7 @@ class Agent(object) :
                         chat(self, None, resp_message) 
                     action = self.extract_action(data)
                     if action is not None : 
+                        add_log(title = self.pack_message("Perfom action."), content = "perform: %s; params: %s" % (action["perform"].__name__, action["params"]), label = "action")
                         action["params"]["agent"] = self
                         run_action(action["perform"], action["params"])
                     else :
@@ -200,8 +201,10 @@ class Agent(object) :
             
             def run_action(perform, params) : 
                 try : 
-                    add_log(title = self.pack_message("Perfom action."), content = "perform: %s; params: %s" % (perform.__name__, params), label = "action")
+                    chat(self, None, "I am going to perform the action: %s with parameters: %s" % (perform.__name__, params))
                     result = perform(**params)
+                    if isinstance(result, str) and len(result.strip()) > 0 :
+                        chat(self, None, result)
                 except Exception as e : 
                     add_log(title = self.pack_message("Exception in performing action."), content = "Exception: %s" % e, label = "error")
             
@@ -252,7 +255,7 @@ The selected action's parameters must follow the types and domains described und
 ## Available Actions 
 %s
 
-''' % (self.get_status_info(), self.memory.get(), "\n".join(message_info_list), self.get_actions_info())
+''' % (self.get_status_info(), self.memory.get(20), "\n".join(message_info_list), self.get_actions_info())
         if self.settings.get("insecure_coding_rounds", 0) > 0 : 
             prompt += '''
 ## Additional Instruction for Using `new_action`:

@@ -11,7 +11,7 @@ class Memory(object) :
         self.records = []
         self.last_summarize_record_time = None
         self.last_process_record_time = None
-        self.summary, self.longterm_thinking, self.skin_path = "", "", None
+        self.summary, self.longterm_thinking, self.bank, self.skin_path = "", "", {}, None
         self.bot_path = os.path.join("bots", self.agent.configs["username"])
         if not os.path.isdir(self.bot_path) : 
             os.makedirs(self.bot_path)  
@@ -24,20 +24,28 @@ class Memory(object) :
     def load(self) : 
         if os.path.isfile(self.memory_path) :
             data = read_json(self.memory_path)
-            self.summary = data.get("summary", "")
-            self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
             self.skin_path = data.get("skin_path", None)
-            self.records += data.get("records", [])
+            if self.agent.settings.get("load_memory", False) == True : 
+                self.summary = data.get("summary", "")
+                self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
+                self.bank = data.get("bank", {})
+                self.records += data.get("records", [])
 
     def save(self) : 
         if os.path.isdir(os.path.dirname(self.memory_path)) : 
-            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "skin_path" : self.skin_path, "records" : self.get_records(10, True)}, self.memory_path) 
+            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "bank" : self.bank, "skin_path" : self.skin_path, "records" : self.get_records(10, True)}, self.memory_path) 
         if os.path.isdir(os.path.dirname(self.history_path)) : 
             write_json({"records" : self.records}, self.history_path) 
     
-    def get(self) : 
-        info = self.get_records_info(10)
-        info += "\n\n Here is a summary of earlier memory: %s" % self.summary
+    def get(self, record_num = 10) : 
+        info = "### Latest History Records:\n%s" % self.get_records_info(record_num)
+        info += "\n\n ### Memory Summary (a summary of earlier memory): %s" % self.summary
+        info += "\n\n ### Long-Term Thinking: %s" % self.longterm_thinking
+        bank_info = ""
+        for key, value in self.bank.items() :
+            bank_info += "- %s: %s\n" % (key, value["value"])
+        if len(bank_info.strip()) > 0 :
+            info += "\n\n ### Memory Bank (the remembered facts and information):\n%s" % bank_info 
         return info
     
     def get_records_info(self, limit, exclude_summary = False) :
@@ -69,6 +77,13 @@ class Memory(object) :
             self.summarize_thread.join()
         self.summarize_thread = threading.Thread(target = self.async_summarize, args=(force, ))
         self.summarize_thread.start()
+    
+    def remember(self, key, value) :
+        self.bank[key] = {"value" : value, "time" : get_datetime_stamp()}
+        if len(self.bank.keys()) > self.agent.settings.get("memory_bank_size", 20) :
+            oldest_key = min(self.bank.keys(), key = lambda k : self.bank[k]["time"])
+            if oldest_key in self.bank.keys() :
+                del self.bank[oldest_key]
 
     def async_summarize(self, force = False) : 
         if force == True or len(self.get_messages_to_work()) > 0 :
@@ -148,10 +163,12 @@ Please:
 1. Generate a new summary that preserves important past information while integrating new, relevant updates from the recent history. Pay special attention to the following:
     - If there are any task requirements — including newly assigned tasks from other players or ongoing tasks that have not yet been completed — be sure to include them in the summary. This helps the bot stay aware of its current objectives and prevents forgetting unfinished work.
     - In the end of the new summary, include a update of what the bot have just finished, and some hints for the next steps, if necessary. This helps the bot to plan its next actions based on the latest information.
-2. Generate a update of the longterm thinking, if necessary. Pay attention to the following: 
-    - Only make changes if significant events have occurred that meaningfully impact the agent's behavior patterns or values;
-    - The long-term thinking should remain relatively stable over time and reflect high-level intentions (e.g., a preference for collaboration, caution, or efficiency);
-    - Avoid overfitting to short-term fluctuations or isolated incidents. 
+2. Generate an update to the "longterm_thinking" field, only if significant events have occurred that meaningfully impact the agent’s overall goals, behavioral patterns, or decision heuristics.
+    - The long-term thinking should be written in neutral, third-person form (avoid using "I" or "You").
+    - Maintain stability: Do not overfit to temporary events or isolated tasks.
+    - Describe enduring tendencies, values, or learned adjustments in strategy.
+    - If recent actions reveal new preferences, constraints, or mission alignment changes, revise the summary accordingly.
+    - When reflecting on events (e.g., completing a task), clearly separate facts (what has occurred) from evolving intent (what should change or persist). 
 
 ## Bot's Status
 %s

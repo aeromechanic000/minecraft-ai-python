@@ -749,3 +749,7 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
     agent.bot.lookAt(build_off_block.position)
     agent.bot.placeBlock(build_off_block, vec3.Vec3(*face_vec))
     return True
+
+def remember(agent, key, value) :
+    agent.memory.remember(key, value)
+    return "Fact remembered as \"%s\"." % key
