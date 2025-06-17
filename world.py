@@ -118,6 +118,11 @@ def get_block_display_name(block_id) :
         block_display_name = block.displayName
     return block_display_name 
 
+def get_display_name_of_block(block_name) :
+    display_name = get_block_display_name(get_block_id(block_name))
+    display_name = display_name if display_name is not None else block_name
+    return display_name 
+
 def get_item_names() : 
     return get_block_names() + [
         "wooden_sword", "stone_sword", "iron_sword", 

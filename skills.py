@@ -141,9 +141,9 @@ def search_block(agent, block_name, range = 64, min_distance = 2) :
     range = min(512, range)
     block = get_nearest_block(agent, block_name, range)
     if block is None :
-        agent.bot.chat("I can't find any %s in %s blocks." % (get_block_display_name(get_block_id(block_name)), math.floor(range)))
+        agent.bot.chat("I can't find any %s in %s blocks." % (get_display_name_of_block(block_name), math.floor(range)))
         return False
-    agent.bot.chat("Found %s at %s. I am going there." % (get_block_display_name(get_block_id(block_name)), block.position))
+    agent.bot.chat("Found %s at %s. I am going there." % (get_display_name_of_block(block_name), block.position))
     go_to_position(agent, block.position.x, block.position.y, block.position.z, min_distance)
     return True
 
@@ -537,7 +537,7 @@ def collect_blocks(agent, block_name, num, exclude = None) :
     if agent.bot.game is not None and agent.bot.game.gameMode == "creative" :
         if agent.bot.modes is not None and agent.bot.modes.isOn("cheat") :
             agent.bot.chat("/give %s %s" % (agent.bot.username, block_name))
-            agent.bot.chat("This is creative mode and I got %s." % get_block_display_name(get_block_id(block_name)))
+            agent.bot.chat("This is creative mode and I got %s." % get_display_name_of_block(block_name))
         else :
             agent.bot.chat("Now we are in creative mode, don't need to collect any blocks.")
         return 1 
@@ -562,16 +562,16 @@ def collect_blocks(agent, block_name, num, exclude = None) :
         blocks = list(filter(lambda block: movements.safeToBreak(block), blocks))
         if len(blocks) < 1 : 
             if collected < 1 :  
-                agent.bot.chat("I don't find any %s nearby to collect." % get_block_display_name(get_block_id(block_name)))
+                agent.bot.chat("I don't find any %s nearby to collect." % get_display_name_of_block(block_name))
             else :
-                agent.bot.chat("Can't find more %s nearby to collect." % get_block_display_name(get_block_id(block_name)))
+                agent.bot.chat("Can't find more %s nearby to collect." % get_display_name_of_block(block_name))
             break
 
         block = blocks[0]
         agent.bot.tool.equipForBlock(block)
         item_id = agent.bot.heldItem if agent.bot.heldItem is not None else None 
         if not block.canHarvest(item_id) : 
-            agent.bot.chat("I dont't have right tools to harvest %s." % get_block_display_name(get_block_id(block_name)))
+            agent.bot.chat("I dont't have right tools to harvest %s." % get_display_name_of_block(block_name))
             break
 
         if must_collect_manually(block_name) :
@@ -588,7 +588,7 @@ def collect_blocks(agent, block_name, num, exclude = None) :
         if agent.bot.interrupt_code :
             break;  
 
-    agent.bot.chat("I have collected %d %s." % (collected, get_block_display_name(get_block_id(block_name))))
+    agent.bot.chat("I have collected %d %s." % (collected, get_display_name_of_block(block_name)))
     return collected > 0
 
 def should_place_torch(agent) : 

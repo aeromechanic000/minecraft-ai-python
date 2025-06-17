@@ -8,6 +8,6 @@
     "memory_bank_size" : 20,
     "ignore_actions" : [], 
     "ignore_messages" : [],
-    "plugins" : [],
-    "agents" : ["./profiles/max.json"]
+    "plugins" : ["Task"],
+    "agents" : ["./profiles/max.json", "./profiles/lucy.json"]
 }

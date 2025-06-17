@@ -341,7 +341,7 @@ This is essential because the new_action will result in generating a custom Pyth
                     reminder_info_list.append("\n [Reminder from \'%s\'] %s" % (key, reminder))
         return "\n".join(reminder_info_list)
 
-    def get_actions(self) : 
+    def get_actions(self, query = None) : 
         ignore_actions = self.settings.get("ignore_actions", [])
         if self.settings.get("insecure_coding_rounds", 0) < 1 and "new_action" not in ignore_actions :
             ignore_actions.append("new_action")
@@ -349,11 +349,13 @@ This is essential because the new_action will result in generating a custom Pyth
         for action in get_primary_actions() + self.plugin_actions : 
             if action["name"] not in ignore_actions : 
                 actions.append(action)
+        if query is not None : 
+            pass
         return actions
 
-    def get_actions_info(self) : 
+    def get_actions_info(self, query = None) : 
         actions_info = ""
-        for i, action in enumerate(self.get_actions()) : 
+        for i, action in enumerate(self.get_actions(query = query)) : 
             actions_info += "\n\n### Action %d\n- Action Name : %s\n- Action Description : %s " % (i, action["name"], action["description"])
             if len(action["params"]) > 0 : 
                 actions_info += "\n- Action Parameters:"

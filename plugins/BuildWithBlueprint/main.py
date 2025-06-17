@@ -31,7 +31,8 @@ class PluginInstance(Plugin) :
     def __init__(self, agent) : 
         super().__init__(agent)
         self.goals, self.blueprint, self.built = [], None, {} 
-        self.path = "./plugins/BuildWithBlueprint/"
+        self.plugin_name = os.path.basename(os.path.dirname(os.path.abspath(__file__))) 
+        self.path = "./plugins/%s/" % self.plugin_name
         self.blueprints = {}
         try :
             blueprints_dir = './plugins/BuildWithBlueprint/blueprints/'
