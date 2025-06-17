@@ -35,7 +35,6 @@ class PluginInstance(Plugin) :
                 self.task = Task(self.agent, read_json(task_path))
             for file in self.agent.settings["agents"] :
                 profile = read_json(file)
-                print(profile, self.agent.configs["username"])
                 if profile["username"] != self.agent.configs["username"] :
                     self.available_agents.append(profile["username"])
         except Exception as e :  

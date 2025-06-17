@@ -222,7 +222,7 @@ class Agent(object) :
                 message_info_list.append("Reflection: \"%s\"" % message["content"])
             else :
                 message_info_list.append("\"%s\" said: \"%s\"" % (message["sender"], message["content"]))
-
+        message_info = "\n".join(message_info_list)
         prompt = '''
 You are an AI assistant helping to plan the next action for a Minecraft bot. Based on the current status, memory, instruction, and the list of available actions, your task is to determine what the bot should do next. 
 
@@ -255,7 +255,7 @@ The selected action's parameters must follow the types and domains described und
 ## Available Actions 
 %s
 
-''' % (self.get_status_info(), self.memory.get(20), "\n".join(message_info_list), self.get_actions_info())
+''' % (self.get_status_info(), self.memory.get(20), message_info, self.get_actions_info(message_info))
         if self.settings.get("insecure_coding_rounds", 0) > 0 : 
             prompt += '''
 ## Additional Instruction for Using `new_action`:
@@ -350,7 +350,9 @@ This is essential because the new_action will result in generating a custom Pyth
             if action["name"] not in ignore_actions : 
                 actions.append(action)
         if query is not None : 
-            pass
+            retrieved = simple_rag(query, ["%s : %s" % (action["name"], action["description"]) for action in actions], 10)
+            top_k_actions = [actions[item[0]] for item in retrieved]
+            actions = top_k_actions
         return actions
 
     def get_actions_info(self, query = None) : 
