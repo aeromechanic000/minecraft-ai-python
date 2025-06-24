@@ -350,7 +350,7 @@ This is essential because the new_action will result in generating a custom Pyth
             if action["name"] not in ignore_actions : 
                 actions.append(action)
         if query is not None : 
-            retrieved = simple_rag(query, ["%s : %s" % (action["name"], action["description"]) for action in actions], 10)
+            retrieved = simple_rag(query, ["%s : %s" % (action["name"], action["description"]) for action in actions], self.settings.get("action_rag_limit", 10))
             top_k_actions = [actions[item[0]] for item in retrieved]
             actions = top_k_actions
         return actions

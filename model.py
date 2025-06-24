@@ -5,11 +5,11 @@ import json5, curl_cffi
 from utils import *
 
 def encode_file_to_base64(path):
-    with open(path, 'rb') as file:
+    with open(path, 'rb') as file :
         return base64.b64encode(file.read()).decode('utf-8')
 
 def decode_and_save_base64(base64_str, save_path):
-    with open(save_path, "wb") as file:
+    with open(save_path, "wb") as file :
         file.write(base64.b64decode(base64_str))
 
 def split_content_and_code(text) :
