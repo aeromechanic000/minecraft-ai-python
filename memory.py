@@ -104,7 +104,7 @@ class Memory(object) :
 ```
 {
     "summary" : "I got a message from the player to ask me to collect some woods, and I collected 20 ore logs.",  
-    "instruction" : "try to collect more ore logs.",
+    "longterm_thinking" : "Enjoy the life.",
 }
 ```
 ''',
