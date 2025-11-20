@@ -299,10 +299,11 @@ You must output:
 
 Important Guidelines:
 1. You should consider the latest message with the highest priority when decide if a new target is required.
-2. If the latest messages report that the current target cannot be accomplished, set current reset the target (null), the plan (empty list) and the progress (null).
-3. If the latest messages report that the current plan step cannot be accomplished, try to update the plan and set progress properly.
-4. If the requirement is not clear. Use chat to ask for more information.
-5. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
+2. The report message from the bot itself should be considered only as a reference to update the plan or progress. You have no need to repsond to it.  
+3. If the latest messages report that the current target cannot be accomplished, set current reset the target (null), the plan (empty list) and the progress (null).
+4. If the latest messages report that the current plan step cannot be accomplished, try to update the plan and set progress properly.
+5. If the requirement is not clear. Use chat to ask for more information.
+6. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
 '''
         plan = self.memory.get_plan()
         if plan.get("target", None) is not None and len(plan.get("plan", [])) > 0 :

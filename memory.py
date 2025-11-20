@@ -172,7 +172,7 @@ class Memory(object) :
             record = records[i]
             if self.last_process_record_time is not None and record["timelabel"] <= self.last_process_record_time :
                 break
-            if record["type"] in ["message", "reflection"] :
+            if record["type"] in ["message", "report", "reflection"] :
                 messages.append(record["data"])
         messages.reverse()
         return messages
