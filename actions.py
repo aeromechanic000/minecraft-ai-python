@@ -339,6 +339,7 @@ def get_primary_actions() :
             "description" : "search for the nearest entity of a given name.",
             "params" : {
                 "entity_name" : {"type": "EntityName", "description": "The name of entity to search."},
+                "range" : {"type": "int", "description": "the number indicate the distance to the farthest entity in the search."},
             },
             "perform" : search_entity, 
         },
@@ -347,6 +348,7 @@ def get_primary_actions() :
             "description" : "search for the nearest block of a given type.",
             "params" : {
                 "block_name" : {"type": "BlockName", "description": "The block name to collect."},
+                "range" : {"type": "int", "description": "the number indicate the distance to the farthest block in the search."},
             },
             "perform" : search_block, 
         },

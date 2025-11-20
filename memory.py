@@ -9,6 +9,7 @@ class Memory(object) :
         self.agent = agent
         self.summarize_thread = None
         self.records = []
+        self.target, self.plan, self.progress = None, [], None
         self.last_summarize_record_time = None
         self.last_process_record_time = None
         self.summary, self.longterm_thinking, self.bank, self.skin_path = "", "", {}, None
@@ -21,6 +22,21 @@ class Memory(object) :
             os.makedirs(os.path.dirname(self.history_path))  
         self.load()
     
+    def update_plan(self, target, plan) : 
+        self.target = target
+        self.plan = plan
+        self.progress = 0 if self.plan is not None and len(self.plan) > 0 else None
+    
+    def update_progress(self, progress) : 
+        self.progress = max(0, progress, min(progress, len(self.plan) - 1))
+    
+    def get_plan(self) : 
+        return {
+            "target" : self.target,
+            "plan" : self.plan,
+            "progress" : self.progress,
+        }
+    
     def load(self) : 
         if os.path.isfile(self.memory_path) :
             data = read_json(self.memory_path)
@@ -30,10 +46,22 @@ class Memory(object) :
                 self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
                 self.bank = data.get("bank", {})
                 self.records += data.get("records", [])
+                self.target = data.get("target", None)
+                self.plan = data.get("plan", [])
+                self.progress = data.get("progress", None)
 
     def save(self) : 
         if os.path.isdir(os.path.dirname(self.memory_path)) : 
-            write_json({"summary" : self.summary, "longterm_thinking" : self.longterm_thinking, "bank" : self.bank, "skin_path" : self.skin_path, "records" : self.get_records(10, True)}, self.memory_path) 
+            write_json({
+                "summary" : self.summary, 
+                "longterm_thinking" : self.longterm_thinking, 
+                "bank" : self.bank, 
+                "skin_path" : self.skin_path, 
+                "records" : self.get_records(10, True),
+                "target" : self.target,
+                "plan" : self.plan,
+                "progress" : self.progress,
+            }, self.memory_path) 
         if os.path.isdir(os.path.dirname(self.history_path)) : 
             write_json({"records" : self.records}, self.history_path) 
     
@@ -137,7 +165,7 @@ class Memory(object) :
         else :
             self.last_process_record_time = None
 
-    def get_messages_to_work(self) : 
+    def get_messages_to_work(self, level = "info") : 
         messages = [] 
         records = self.get_records(10, True)
         for i in range(-1, - len(records) - 1, -1) :

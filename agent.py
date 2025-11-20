@@ -79,7 +79,7 @@ class Agent(object) :
             def handle_think(this, message):
                 record = {"type" : "reflection", "data" : {"sender" : self.bot.username, "content" : message}}
                 self.memory.update(record)
-                self.bot.emit("work")
+                self.bot.emit("plan")
 
             @On(self.bot, 'chat')
             def handle_chat(this, username, message, *args):
@@ -117,6 +117,80 @@ class Agent(object) :
                 self.memory.update(record)
 
                 if record["type"] == "message" :
+                    self.bot.emit("plan")
+
+            @On(self.bot, "plan")
+            def handle_plan(this) : 
+                messages = self.memory.get_messages_to_work()
+                if len(messages) < 1 :
+                    add_log(title = self.pack_message("There is no messages to work on."), label = "warning")
+                    plan = self.memory.get_plan()
+                    if plan.get("target", None) is None or len(plan.get("plan", [])) < 1 or plan.get("progress", None) is None :
+                        if self.self_driven_thinking_timer is not None :
+                            self_driven_thinking(self)
+                        return
+
+                self.memory.summarize()
+
+                prompt = self.build_plan_prompt(messages) 
+                json_keys = {
+                    "target" : {
+                        "description" : "An updated version of the current target, if current target is None or not proper for the latest requirement. Return the current target if there is no need to change. If the current plan has been finished, set value to null.",
+                    },
+                    "plan" : {
+                        "description" : "An JSON list to specify the steps for the agent to achieve the task. If no step is needed, set value to empty list.",
+                    }, 
+                    "progress" : {
+                        "description" : "A JSON integer to indicate the progress of the plan, where 0 indicates there is no progress. If no progress is made, set value to null.",
+                    },
+                    "message" : {
+                        "description" : "A message in JSON string to the player who sent you the lastest message, if necessary. If not applicable, leave the value to null.",
+                    },
+                }
+                examples = [
+                    '''
+```
+{
+"target" : "Kill a hostile monster.",
+"plan" : [
+    "Prepare for combat by checking your inventory for a weapon (wooden sword or better preferred) and ensuring your health is above 2 hearts. Equip the weapon if available.",
+    "Locate a hostile monster by exploring a dark area (nighttime surface or cave) until you spot a mob like a zombie, skeleton, or creeper.",
+    "Approach the hostile monster and repeatedly strike it with your combat tool until it stops moving."
+], 
+"progress" : 1, 
+"message" : "I have finished the first step of my plan to kill a hostile monster. Now, I am locating a hostile monster to proceed to the next step."  
+} 
+```
+''',
+                ]
+                add_log(title = self.pack_message("Built plan prompt."), content = prompt, label = "action", print = False)
+                provider, model = self.get_provider_and_model("plan")
+                llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
+                add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
+                self.memory.clear_messages_to_work()
+                data = llm_result["data"]
+                if data is not None :
+                    target = data.get("target", None)
+                    plan = data.get("plan", [])
+                    progress = data.get("progress", None)
+                    add_log(
+                        title = self.pack_message("Update target and plan."), 
+                        content = json.dumps({"target" : target, "plan" : plan, "progress" : progress}, indent = 4), 
+                        label = "action"
+                    )
+                    if target is not None : 
+                        self.memory.update_plan(target, plan)
+                        self.memory.update_progress(progress)
+                    else : 
+                        self.memory.update_plan(None, [])
+
+                    resp_message = data.get("message", None)
+                    if resp_message is not None and isinstance(resp_message, str) :
+                        chat(self, None, resp_message) 
+                else :
+                    add_log(title = self.pack_message("No data returned from LLM."), label = "warning")
+
+                if self.working_process is None : 
                     self.bot.emit("work")
                     
             @On(self.bot, "work")
@@ -125,15 +199,17 @@ class Agent(object) :
                     add_log(title = self.pack_message("Current working process is not finished."), content = "working process: %s" % self.working_process, label = "warning")
                     return 
                     
-                messages = self.memory.get_messages_to_work()
-                if len(messages) < 1 :
-                    add_log(title = self.pack_message("There is no messages to work on."), label = "warning")
-                    return
+                plan = self.memory.get_plan()
+                if plan.get("target", None) is None or len(plan.get("plan", [])) < 1 :
+                    add_log(title = self.pack_message("There is no plan to execute."), label = "warning")
+                    self.working_process = None
+                    self.bot.emit("plan")
+                    return 
 
                 self.memory.summarize()
                 self.working_process = get_random_label() 
 
-                prompt = self.build_prompt(messages) 
+                prompt = self.build_work_prompt(messages) 
                 json_keys = {
                     "status" : {
                         "description" : "An updated version of the status summary of the agent. If no update is needed, set value to null.",
@@ -169,7 +245,7 @@ class Agent(object) :
 ```
 ''',
                 ]
-                add_log(title = self.pack_message("Built prompt."), content = prompt, label = "action", print = False)
+                add_log(title = self.pack_message("Built work prompt."), content = prompt, label = "action", print = False)
                 provider, model = self.get_provider_and_model("action")
                 llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
                 add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
@@ -193,11 +269,7 @@ class Agent(object) :
                     add_log(title = self.pack_message("No data returned from LLM."), label = "warning")
 
                 self.working_process = None
-                messages = self.memory.get_messages_to_work()
-                if len(messages) > 0 :
-                    self.bot.emit("work")
-                elif self.self_driven_thinking_timer is not None :
-                    self_driven_thinking(self)
+                self.bot.emit("plan")
             
             def run_action(perform, params) : 
                 try : 
@@ -211,20 +283,59 @@ class Agent(object) :
             messages = self.memory.get_messages_to_work()
             if len(messages) > 0 :
                 self.bot.chat("Found task that is not finished.")
-                self.bot.emit("work")
+                self.bot.emit("plan")
             else :
                 self.bot.chat("Hi. I am %s." % self.bot.username)
 
-    def build_prompt(self, messages) :     
-        message_info_list = []
-        for message in messages :
-            if message["sender"] == self.bot.username :
-                message_info_list.append("Reflection: \"%s\"" % message["content"])
-            else :
-                message_info_list.append("\"%s\" said: \"%s\"" % (message["sender"], message["content"]))
-        message_info = "\n".join(message_info_list)
+    def build_plan_prompt(self, messages) :     
         prompt = '''
-You are an AI assistant helping to plan the next action for a Minecraft bot. Based on the current status, memory, instruction, and the list of available actions, your task is to determine what the bot should do next. 
+You are an AI assistant helping to plan the steps for a Minecraft bot, based on the current plan and the progress if there is already a target. Futhermore, you should consider the current status, memory, latest messages when you determine if the current progress should be updated, the plan should be adjusted or a new target should be made. 
+
+You must output: 
+1. An updated target, if any change is needed (set up new target or modify current one). This should briefly describe the bot's short-term goal. 
+2. The plan for the bot to execute step by step.
+3. An integer to indicate the progress, i.e. which step has been finished. At the beginning of a new plan, the progress should be 0.
+4. An message to the player who sent the latest message, if necessary.
+
+Important Guidelines:
+1. You should consider the latest message with the highest priority when decide if a new target is required.
+2. If the latest messages report that the current target cannot be accomplished, set current reset the target (null), the plan (empty list) and the progress (null).
+3. If the latest messages report that the current plan step cannot be accomplished, try to update the plan and set progress properly.
+4. If the requirement is not clear. Use chat to ask for more information.
+5. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
+'''
+        plan = self.memory.get_plan()
+        if plan.get("target", None) is not None and len(plan.get("plan", [])) > 0 :
+            prompt += "\n\n## Current Target:\n%s" % plan["target"] 
+            prompt += "\n\n## Current Plan:\n%s" % plan["plan"] 
+            progress = plan.get("progress", None)
+            if progress is not None and isinstance(progress, int) and progress >= 0 and progress < len(plan["plan"]) :
+                prompt += "\n\n## Current Progress:\nStep %d: %s" % (progress, plan["plan"][progress])
+
+        status_info = self.get_status_info()
+        if status_info is not None and len(status_info.strip()) > 0 :
+            prompt += "\n\n## Current Status:\n%s" % status_info
+        else :
+            prompt += "\n\nCurrent Status is not available."
+
+        memory_info = self.memory.get(20)
+        if memory_info is not None and len(memory_info.strip()) > 0 :
+            prompt += "\n\n## Memory:\n%s" % memory_info
+        else :
+            prompt += "\n\nMemory is empty."
+        
+        message_info = self.get_message_info(messages) 
+        if message_info is not None and len(message_info.strip()) > 0 :
+            prompt += "\n\n## Lastest Messages:\n%s" % message_info
+        else :
+            prompt += "\n\nThere is no new messages."
+
+        return prompt
+
+
+    def build_work_prompt(self, messages) :     
+        prompt = '''
+You are an AI assistant helping to decide the next action for a Minecraft bot, based on the required target, the plan and the progress. Futhermore, you should consider the current status, memory and the list of available actions when you determine what the bot should do next. 
 
 You must output: 
 1. An updated status summary, if any change is needed. This should briefly describe the bot's current situation, goals, recent actions, and important outcomes that help track progress. 
@@ -242,20 +353,38 @@ Important Guidelines:
 8. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
 
 The selected action's parameters must follow the types and domains described under 'Available Actions'.
+'''
+        plan = self.memory.get_plan()
+        if plan.get("target", None) is not None and len(plan.get("plan", [])) > 0 :
+            prompt += "\n\n## Current Target:\n%s" % plan["target"] 
+            prompt += "\n\n## Current Plan:\n%s" % plan["plan"] 
+            progress = plan.get("progress", None)
+            if progress is not None and isinstance(progress, int) and progress >= 0 and progress < len(plan["plan"]) :
+                prompt += "\n\n## Current Progress:\nStep %d: %s" % (progress, plan["plan"][progress])
 
-## Bot's Status
-%s
+        status_info = self.get_status_info()
+        if status_info is not None and len(status_info.strip()) > 0 :
+            prompt += "\n\n## Current Status:\n%s" % status_info
+        else :
+            prompt += "\n\nCurrent Status is not available."
 
-## Bot's Memory
-%s
+        memory_info = self.memory.get(20)
+        if memory_info is not None and len(memory_info.strip()) > 0 :
+            prompt += "\n\n## Memory:\n%s" % memory_info
+        else :
+            prompt += "\n\nMemory is empty."
+        
+        progress_info = None 
+        progress = plan.get("progress", None)
+        if progress is not None and isinstance(progress, int) and progress >= 0 and progress < len(plan.get("plan", [])) :
+            progress_info = plan["plan"][progress]
 
-## Lastest Message
-%s
+        action_info = self.get_actions_info(progress_info) 
+        if action_info is not None and len(action_info.strip()) > 0 :
+            prompt += "\n\n##Available Actions:\n%s" % action_info
+        else :
+            prompt += "\n\nThere is no available actions."
 
-## Available Actions 
-%s
-
-''' % (self.get_status_info(), self.memory.get(20), message_info, self.get_actions_info(message_info))
         if self.settings.get("insecure_coding_rounds", 0) > 0 : 
             prompt += '''
 ## Additional Instruction for Using `new_action`:
@@ -277,7 +406,10 @@ This is essential because the new_action will result in generating a custom Pyth
         return [self.bot.time.day, hrs, mins, secs]
 
     def get_status_info(self) : 
-        status = "- Bot's Name: %s" % self.bot.username
+        status = "\n\n- Game Mode: %s" % self.bot.game.gameMode
+        status = "\n- Time: %s" % (":".join([str(x).zfill(2) for x in self.get_mc_time()]))
+        status = "\n- Weather: %s" % "raining" if self.bot.isRaining else "clear sky" 
+        status += "\n\n- Bot's Name: %s" % self.bot.username
         status += "\n- Bot's Profile: %s" % self.configs.get("profile", "A smart Minecraft AI character.")
         if len(self.status_summary.strip()) > 0 :
             status += "\n- Status Summary: %s" % self.status_summary
@@ -314,6 +446,15 @@ This is essential because the new_action will result in generating a custom Pyth
             add_log(title = self.pack_message("Exception when get information of nearby blocks and entities."), content = "Exception: %s" % e, label = "warning")
         return status
     
+    def get_message_info(self, messages) :
+        message_info_list = []
+        for message in messages :
+            if message["sender"] == self.bot.username :
+                message_info_list.append("Reflection: \"%s\"" % message["content"])
+            else :
+                message_info_list.append("\"%s\" said: \"%s\"" % (message["sender"], message["content"]))
+        return "\n".join(message_info_list)
+
     def load_plugins(self) : 
         self.plugins, self.plugin_actions = {}, [] 
         plugins_dir = "./plugins"
