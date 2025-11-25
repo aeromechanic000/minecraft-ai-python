@@ -213,6 +213,8 @@ def search_entity(agent, entity_name, range = 64, min_distance = 2) :
         distance = agent_pos.distanceTo(entity_pos)
         agent.bot.chat("Found %s %s blocks away. I am going there." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(distance)))
         go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, min_distance)
+    else : 
+        agent.bot.chat("Some errors here. Let me try again.")
     return True
 
 def go_to_position(agent, x, y, z, closeness = 0) : 
@@ -223,6 +225,7 @@ def go_to_position(agent, x, y, z, closeness = 0) :
         time.sleep(0.1)
         while agent.bot.pathfinder.isMoving() :
             time.sleep(0.2)
+        agent.bot.chat("I have arrived at the position (%.1f, %.1f, %.1f)." % (x, y, z))
     except Exception as e : 
         add_log(title = agent.pack_message("Exception in executing go_to_position."), content = "Exception: %s" % e, label = "warning")
 
@@ -748,6 +751,7 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
     agent.bot.equip(block, 'hand')
     agent.bot.lookAt(build_off_block.position)
     agent.bot.placeBlock(build_off_block, vec3.Vec3(*face_vec))
+    agent.bot.chat("I placed %s at %s." % (get_display_name_of_block(block_name), target_dest))
     return True
 
 def remember(agent, key, value) :
