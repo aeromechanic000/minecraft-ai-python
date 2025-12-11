@@ -2,6 +2,10 @@
 
 Minecraft AI-Python is a modular framework designed to support the creation and customization of AI Characters (AICs) within Minecraft environments. It provides a stable and extensible interface for perception, action, communication, memory, and reflection—enabling complex individual and multi-agent behaviors.
 
+**The Embodied Turing Test** rather than asking "Can machines think?", Minecraft AI invites a new question for the generative AI era: Can machines play with us? Through open-ended interaction, emergent behaviors, and shared creativity, we explore whether AI can truly engage as a companion—not just in conversation, but in fun, imagination, and collaborative world-building.
+
+> The [Minecraft AI Emobodied Benchmark](https://minecraft-ai-embodied-benchmark.megrez.plus/) Benchmark is a hierarchical evaluation framework designed to measure the embodied intelligence of AI agents in Minecraft. It organizes all in-game advancements into progressive levels, allowing researchers and developers to assess an agent’s cognitive and interactive abilities — from basic survival skills to complex multi-step planning and collaboration. Each level represents a milestone in autonomy, perception, and reasoning within a persistent, open-ended environment, providing a structured path for developing and comparing Minecraft-based AI systems.
+
 This project is part of the broader Minecraft AI ecosystem. While the original [Minecraft AI](https://github.com/aeromechanic000/minecraft-ai) project focuses on a JavaScript-based infrastructure with integrated components, minecraft-ai-python emphasizes simplicity, flexibility, and rapid development in Python. It is ideal for educational experiments, prototyping research ideas, and custom agent development by individual contributors.
 
 More detailed information can be found in [Minecraft AI Whitepapers and Technical Reports](https://github.com/aeromechanic000/minecraft-ai-whitepaper).
