@@ -132,7 +132,7 @@ class Agent(object) :
 
                 self.memory.summarize()
 
-                prompt = self.build_plan_prompt(messages) 
+                prompt, context = self.build_plan_prompt(messages) 
                 json_keys = {
                     "target" : {
                         "description" : "An updated version of the current target, if current target is None or not proper for the latest requirement. Return the current target if there is no need to change. If the current plan has been finished, set value to null.",
@@ -165,14 +165,14 @@ class Agent(object) :
                 ]
                 add_log(title = self.pack_message("Built plan prompt."), content = prompt, label = "action", print = False)
                 provider, model = self.get_provider_and_model("plan")
-                llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
+                llm_result = call_llm_api_with_enhancer(self, provider, model, prompt, context, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
                 add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
                 self.memory.clear_messages_to_work()
                 data = llm_result["data"]
                 if data is not None :
                     target = data.get("target", None)
                     plan = data.get("plan", [])
-                    progress = data.get("progress", None)
+                    progress = data.get("progress", 0)
                     add_log(
                         title = self.pack_message("Update target and plan."), 
                         content = json.dumps({"target" : target, "plan" : plan, "progress" : progress}, indent = 4), 
@@ -209,7 +209,7 @@ class Agent(object) :
                 self.memory.summarize()
                 self.working_process = get_random_label() 
 
-                prompt = self.build_work_prompt(messages) 
+                prompt, context = self.build_work_prompt(messages) 
                 json_keys = {
                     "status" : {
                         "description" : "An updated version of the status summary of the agent. If no update is needed, set value to null.",
@@ -247,7 +247,7 @@ class Agent(object) :
                 ]
                 add_log(title = self.pack_message("Built work prompt."), content = prompt, label = "action", print = False)
                 provider, model = self.get_provider_and_model("action")
-                llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
+                llm_result = call_llm_api_with_enhancer(self, provider, model, prompt, context, json_keys, examples, max_tokens = self.configs.get("max_tokens", 4096))
                 add_log(title = self.pack_message("Get LLM response"), content = json.dumps(llm_result, indent = 4), label = "action", print = False)
                 self.memory.clear_messages_to_work()
                 data = llm_result["data"]
@@ -305,34 +305,35 @@ Important Guidelines:
 5. If the requirement is not clear. Use chat to ask for more information.
 6. If the requirement is already sasified. Use chat to tell the reason why there is no need to perform any actions.
 '''
+        context = []
         plan = self.memory.get_plan()
         if plan.get("target", None) is not None and len(plan.get("plan", [])) > 0 :
-            prompt += "\n\n## Current Target:\n%s" % plan["target"] 
-            prompt += "\n\n## Current Plan:\n%s" % plan["plan"] 
+            context.append(("Current Target", plan["target"]))
+            context.append(("Current Plan", plan["plan"]))
+
             progress = plan.get("progress", None)
             if progress is not None and isinstance(progress, int) and progress >= 0 and progress < len(plan["plan"]) :
-                prompt += "\n\n## Current Progress:\nStep %d: %s" % (progress, plan["plan"][progress])
+                context.append(("Current Progress", "Step %d: %s" % (progress, plan["plan"][progress])))
 
         status_info = self.get_status_info()
         if status_info is not None and len(status_info.strip()) > 0 :
-            prompt += "\n\n## Current Status:\n%s" % status_info
+            context.append(("Current Status", status_info))
         else :
-            prompt += "\n\nCurrent Status is not available."
+            context.append(("Current Status", "Not available."))
 
         memory_info = self.memory.get(20)
         if memory_info is not None and len(memory_info.strip()) > 0 :
-            prompt += "\n\n## Memory:\n%s" % memory_info
+            context.append(("Memory", memory_info))
         else :
-            prompt += "\n\nMemory is empty."
+            context.append(("Memory", "Empty."))
         
         message_info = self.get_message_info(messages) 
         if message_info is not None and len(message_info.strip()) > 0 :
-            prompt += "\n\n## Lastest Messages:\n%s" % message_info
+            context.append(("Latest Messages", message_info))
         else :
-            prompt += "\n\nThere is no new messages."
+            context.append(("Latest Messages", "No new messages."))
 
-        return prompt
-
+        return prompt, context
 
     def build_work_prompt(self, messages) :     
         prompt = '''
@@ -355,25 +356,25 @@ Important Guidelines:
 
 The selected action's parameters must follow the types and domains described under 'Available Actions'.
 '''
+        context = []
         plan = self.memory.get_plan()
         if plan.get("target", None) is not None and len(plan.get("plan", [])) > 0 :
-            prompt += "\n\n## Current Target:\n%s" % plan["target"] 
-            prompt += "\n\n## Current Plan:\n%s" % plan["plan"] 
+            context.append(("Current Target", plan["target"]))
+            context.append(("Current Plan", plan["plan"]))
             progress = plan.get("progress", None)
             if progress is not None and isinstance(progress, int) and progress >= 0 and progress < len(plan["plan"]) :
-                prompt += "\n\n## Current Progress:\nStep %d: %s" % (progress, plan["plan"][progress])
-
+                context.append(("Current Progress", "Step %d: %s" % (progress, plan["plan"][progress])))
         status_info = self.get_status_info()
         if status_info is not None and len(status_info.strip()) > 0 :
-            prompt += "\n\n## Current Status:\n%s" % status_info
+            context.append(("Current Status", status_info))
         else :
-            prompt += "\n\nCurrent Status is not available."
+            context.append(("Current Status", "Not available."))
 
         memory_info = self.memory.get(20)
         if memory_info is not None and len(memory_info.strip()) > 0 :
-            prompt += "\n\n## Memory:\n%s" % memory_info
+            context.append(("Memory", memory_info))
         else :
-            prompt += "\n\nMemory is empty."
+            context.append(("Memory", "Empty."))
         
         progress_info = None 
         progress = plan.get("progress", None)
@@ -382,21 +383,21 @@ The selected action's parameters must follow the types and domains described und
 
         action_info = self.get_actions_info(progress_info) 
         if action_info is not None and len(action_info.strip()) > 0 :
-            prompt += "\n\n##Available Actions:\n%s" % action_info
+            context.append(("Available Actions", action_info))
         else :
-            prompt += "\n\nThere is no available actions."
+            context.append(("Available Actions", "No available actions."))
 
         if self.settings.get("insecure_coding_rounds", 0) > 0 : 
-            prompt += '''
-## Additional Instruction for Using `new_action`:
+            context.append(("Additional Instruction for Using `new_action`", '''
 Among the available actions, always prioritize using predefined actions to accomplish the current task. Only use the new_action when it is clearly necessary — i.e., when none of the existing predefined actions (execluding `chat`) are sufficient to fulfill the task. If you decide to use new_action, you must provide a clear, specific, and complete description of the task under the `task` parameter. This description should include:
     - What the bot is expected to do,
     - Any contextual details needed for proper execution,
     - The expected result or behavior,
     - Relevant constraints, if any.
 This is essential because the new_action will result in generating a custom Python function (generated_action(agent)) that uses agent.bot to control the bot. Poorly specified tasks will cause the bot to fail or behave unpredictably.
-'''
-        return prompt
+'''))
+
+        return prompt, context
 
     def get_mc_time(self) : 
         hrs, mins = 0, 0

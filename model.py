@@ -159,6 +159,9 @@ def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temper
                 headers = {"Content-Type" : "application/json"},
                 json = payload,
             )
+
+            add_log(title = "Response of Ollama API.", content = str(response), label = "llm", print = False)
+
             if response.status_code == 200 :
                 response_data = response.json()
                 result["message"] = response_data.get("response", "")
@@ -200,6 +203,9 @@ def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, 
             },
             json = payload,
         )
+
+        add_log(title = "Response of Pollinations API.", content = str(response), label = "llm", print = False)
+
         if response.status_code == 200 :
             response_data = response.json()
             if "choices" in response_data.keys() : 
@@ -245,6 +251,9 @@ def call_free_api(url, model, prompt, images = None, max_tokens = 4096, temperat
             },
             json = payload,
         )
+
+        add_log(title = "Response of free API.", content = str(response), label = "llm", print = False)
+
         if response.status_code == 200 :
             response_data = response.json() 
             if "choices" in response_data.keys() : 
@@ -292,6 +301,9 @@ def call_open_api(url, api_key, model, prompt, images = None, max_tokens = 4096,
             },
             json = payload,
         )
+
+        add_log(title = "Response of open API.", content = str(response), label = "llm", print = False)
+
         if response.status_code == 200 :
             response_data = response.json() 
             if "choices" in response_data.keys() : 
@@ -338,6 +350,9 @@ def call_openai_api(url, api_key, model, prompt, images = None, max_tokens = 409
             },
             json = payload,
         )
+
+        add_log(title = "Response of OpenAI api.", content = str(response), label = "llm", print = False)
+
         if response.status_code == 200 :
             response_data = response.json()
             if "output" in response_data.keys() : 
@@ -382,6 +397,9 @@ def call_anthropic_api(url, token, model, prompt, images = None, max_tokens = 40
             },
             json = payload,
         )
+
+        add_log(title = "Response of Anthropic API.", content = str(response), label = "llm", print = False)
+
         if response.status_code == 200 :
             response_data = response.json()
             if "content" in response_data.keys() : 
@@ -427,6 +445,9 @@ def call_gemini_api(url, api_key, model, prompt, images = None, max_tokens = 409
             },
             json = payload,
         )
+
+        add_log(title = "Response of Gemini API.", content = str(response), label = "llm", print = False)
+
         if response.status_code == 200 :
             response_data = response.json()
             if "candidates" in response_data.keys() : 

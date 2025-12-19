@@ -92,44 +92,29 @@ class bstyles:
     RESET_INVERT = '\033[27m'    
 
 def print_msg(title, content = "", label = "text") :
-    head_tag = ""
-    end_tag = ""
+    head_tag, end_tag = '\033[97m', bstyles.ENDC
     if label == "system" :
         head_tag = bstyles.PURPLE
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
     elif label == "agent" :
         head_tag = bstyles.LIGHT_CYAN
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
     elif label == "plugin" :
         head_tag = bstyles.CYAN
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
     elif label == "memory" :
         head_tag = bstyles.DARK_CYAN
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
     elif label == "action" :
         head_tag = bstyles.ORANGE
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
+    elif label == "llm" :
+        head_tag = bstyles.LIME
     elif label == "coding" :
         head_tag = bstyles.DARK_ORANGE
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
     elif label == "success" :
         head_tag = bstyles.GREEN
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
     elif label == "warning" :
         head_tag = bstyles.YELLOW
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
     elif label == "error" :
         head_tag = bstyles.RED
-        end_tag = bstyles.ENDC
-        title = "[%s] %s" % (get_datetime(), title)
+
+    title = "[%s] %s" % (get_datetime(), title)
 
     print(head_tag + title + end_tag)
     if len(content.strip()) > 0 :

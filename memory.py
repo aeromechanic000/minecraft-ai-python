@@ -1,5 +1,6 @@
 
 import threading
+from enhancer import *
 from model import *
 from world import *
 from utils import *
@@ -9,10 +10,11 @@ class Memory(object) :
         self.agent = agent
         self.summarize_thread = None
         self.records = []
-        self.target, self.plan, self.progress = None, [], None
+        self.target, self.plan, self.progress = None, [], 0
         self.last_summarize_record_time = None
         self.last_process_record_time = None
-        self.summary, self.longterm_thinking, self.bank, self.skin_path = "", "", {}, None
+        self.summary, self.longterm_thinking = "", "" 
+        self.topics, self.bank, self.skin_path = {}, {}, None
         self.bot_path = os.path.join("bots", self.agent.configs["username"])
         if not os.path.isdir(self.bot_path) : 
             os.makedirs(self.bot_path)  
@@ -44,6 +46,7 @@ class Memory(object) :
             if self.agent.settings.get("load_memory", False) == True : 
                 self.summary = data.get("summary", "")
                 self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
+                self.topics = data.get("topics", {})
                 self.bank = data.get("bank", {})
                 self.records += data.get("records", [])
                 self.target = data.get("target", None)
@@ -55,6 +58,7 @@ class Memory(object) :
             write_json({
                 "summary" : self.summary, 
                 "longterm_thinking" : self.longterm_thinking, 
+                "topics" : self.topics,
                 "bank" : self.bank, 
                 "skin_path" : self.skin_path, 
                 "records" : self.get_records(10, True),
@@ -74,6 +78,8 @@ class Memory(object) :
             bank_info += "- %s: %s\n" % (key, value["value"])
         if len(bank_info.strip()) > 0 :
             info += "\n\n ### Memory Bank (the remembered facts and information):\n%s" % bank_info 
+        for topic, summary in self.topics.items() :
+            info += "\n\n ### Topic - %s:\n%s" % (topic, summary)
         return info
     
     def get_records_info(self, limit, exclude_summary = False) :
@@ -117,7 +123,7 @@ class Memory(object) :
         if force == True or len(self.get_messages_to_work()) > 0 :
             add_log(title = self.agent.pack_message("Summarize memory."), content = "Last summarizing time: %s" % self.last_summarize_record_time, label = "memory")
             last_summarize_time = get_datetime_stamp() 
-            prompt = self.build_prompt()
+            prompt, context = self.build_prompt()
             add_log(title = self.agent.pack_message("Built prompt."), content = prompt, label = "memory", print = False)
             json_keys = {
                 "summary" : {
@@ -126,6 +132,10 @@ class Memory(object) :
                 "longterm_thinking" : {
                     "description" : "The long-term thinking of the bot, about 200 words; If not necessary to update the long-term thinking, leave the value to null.",
                 },
+                "topics" : 
+                {
+                    "description" : "A mapping of important topics to their summaries, which will be used to replace the current topics.",
+                },
             }
             examples = [
                 '''
@@ -133,16 +143,22 @@ class Memory(object) :
 {
     "summary" : "I got a message from the player to ask me to collect some woods, and I collected 20 ore logs.",  
     "longterm_thinking" : "Enjoy the life.",
+    "topics" : {
+        "Player1" : "A friendly player who often gives me tasks to help him collect resources.",
+        "Player2" : "A cautious player who prefers to avoid dangerous situations and values safety."
+    }
 }
 ```
 ''',
             ]
             provider, model = self.agent.get_provider_and_model("memory")
-            llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
+            llm_result = call_llm_api_with_enhancer(self.agent, provider, model, prompt, context, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
             add_log(title = self.agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "memory", print = False)
             data = llm_result["data"]
             if data is not None :
-                summary, longterm_thinking = data.get("summary", None), data.get("longterm_thinking", None)
+                summary = data.get("summary", None)
+                longterm_thinking = data.get("longterm_thinking", None)
+                topics = data.get("topics", None)
                 if summary is not None : 
                     self.summary = str(summary)
                     if len(self.records) > 0 :
@@ -151,7 +167,11 @@ class Memory(object) :
                 if longterm_thinking is not None: 
                     self.longterm_thinking = str(longterm_thinking)
                     add_log(title = self.agent.pack_message("Long-term thinking updated."), content = self.longterm_thinking, label = "memory")
-                if summary is not None or longterm_thinking is not None :
+                if topics is not None and isinstance(data["topics"], dict) :
+                    self.topics = {}
+                    for topic, summary in data["topics"].items() :
+                        self.topics[topic] = str(summary)
+                if any([summary, longterm_thinking, topics]) :
                     self.save()
 
     def update(self, record) : 
@@ -186,6 +206,7 @@ Given:
 2. An old memory summary that contains previously known information. 
 3. The profile of the bot.
 4. The long-term thinking of the bot.
+5. the summaries of currently maintained topics.
 
 Please:
 1. Generate a new summary that preserves important past information while integrating new, relevant updates from the recent history. Pay special attention to the following:
@@ -197,20 +218,18 @@ Please:
     - Describe enduring tendencies, values, or learned adjustments in strategy.
     - If recent actions reveal new preferences, constraints, or mission alignment changes, revise the summary accordingly.
     - When reflecting on events (e.g., completing a task), clearly separate facts (what has occurred) from evolving intent (what should change or persist). 
+3. Update the important topics and their summaries based on the recent records. Add new topics if necessary and the total number of topics should not exceed 5. The topics should be returned as a mapping from topic names to their summaries, under the "topics" field.
+    - Focus on the social relationships with the other players (or bots) in the world, and use the players' names as the topic names.
+''' 
+        context = [
+            ("Bot's Status", self.get_status_info()),
+            ("Long-term Thinking", self.longterm_thinking),
+            ("History Records", self.get_records_info(20)),
+            ("Old Summary", self.summary),
+            ("Topics", "\n".join([f"{topic}: {summary}" for topic, summary in self.topics.items()]) if self.topics is not None and len(self.topics) > 0 else "None"),
+        ]
 
-## Bot's Status
-%s
-
-## Long-term Thinking
-%s
-
-## History Records
-%s
-
-## Old Summary
-%s
-''' % (self.get_status_info(), self.longterm_thinking, self.get_records_info(20), self.summary)
-        return prompt
+        return prompt, context
     
     def get_status_info(self) :
         status = "- Bot's Name: %s" % self.agent.bot.username

@@ -1,4 +1,5 @@
 
+from enhancer import *
 from model import *
 from world import *
 from utils import *
@@ -25,17 +26,15 @@ Please follow the steps below:
     * If your current situation aligns with your preferences, you may take a more proactive role.
     * In that case, feel free to suggest a next step even if no one asked you to—but ideally, ask others for their opinion before proceeding.
 - Return Null if you decide to become Idle: If there are no pending or paused tasks and nothing needs to be done, return a null message to indicate that no further action is needed for now. For example, if you have finished all jobs and wait for further instructions, return null reflection to become idle. Only return a reflection with non-null content when you need to take some actions. 
-
-## Bot's Status
-%s
-
-## Bot's Memory
-%s
-''' % (agent.get_status_info(), agent.memory.get(20))
+'''
+    context = [
+        ("Bos's Status", agent.get_status_info()),
+        ("Bot's Memory", agent.memory.get(20)),
+    ]
 
     reminder_info = agent.get_plugin_reminder_info()
     if reminder_info is not None and len(reminder_info.strip()) > 0 :
-        prompt += "\n## Reminders\n%s" % reminder_info
+        context.append(("Reminders", reminder_info))
 
     json_keys = {
         "reflection" : {
@@ -71,8 +70,9 @@ Please follow the steps below:
 ```
 ''',
     ]
+
     provider, model = agent.get_provider_and_model("reflection")
-    llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
+    llm_result = call_llm_api_with_enhancer(agent, provider, model, prompt, context, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
     add_log(title = agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "agent", print = False)
     data = llm_result["data"]
     if data is not None and data.get("message", None) is not None :
@@ -227,7 +227,7 @@ $CODING_EXAMPLES
 
         add_log(title = agent.pack_message("Built prompt."), content = prompt, label = "coding", print = False)
         provider, model = agent.get_provider_and_model("new_action")
-        llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
+        llm_result = call_llm_api_with_enhancer(agent, provider, model, prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
         add_log(title = agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "coding", print = False)
         data = llm_result["data"]
         if data is not None :

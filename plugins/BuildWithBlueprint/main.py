@@ -228,7 +228,7 @@ You are a playful Minecraft bot named $NAME who is good at making building bluep
 ''' 
         ]
         provider, model = self.agent.get_provider_and_model("build")
-        llm_result = call_llm_api(provider, model, prompt, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
+        llm_result = call_llm_api(self.agent, provider, model, prompt, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
         add_log(title = self.agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "plugin", print = False)
         data = llm_result["data"]
         if data is not None and data.get("blocks", None) is not None :
