@@ -1,6 +1,6 @@
 
 import os, json, inspect, re, base64
-import json5, curl_cffi
+import json5, requests
 
 from utils import *
 
@@ -154,7 +154,7 @@ def call_ollama_api(url, model, prompt, images = None, max_tokens = 4096, temper
             payload["images"].append(encode_file_to_base64(image))
     if len(url.strip()) > 0 :
         try :
-            response = curl_cffi.requests.post(
+            response = requests.post(
                 url,
                 headers = {"Content-Type" : "application/json"},
                 json = payload,
@@ -195,7 +195,7 @@ def call_pollinations_api(url, model, prompt, images = None, max_tokens = 4096, 
         for image in images :
             payload["images"].append(encode_file_to_base64(image))
     try :
-        response = curl_cffi.requests.post(
+        response = requests.post(
             url,
             headers = {
                 "Content-Type" : "application/json",
@@ -244,7 +244,7 @@ def call_free_api(url, model, prompt, images = None, max_tokens = 4096, temperat
         for image in images :
             payload["images"].append(encode_file_to_base64(image))
     try :
-        response = curl_cffi.requests.post(
+        response = requests.post(
             url,
             headers = {
                 "Content-Type" : "application/json",
@@ -293,7 +293,7 @@ def call_open_api(url, api_key, model, prompt, images = None, max_tokens = 4096,
         for image in images :
             payload["images"].append(encode_file_to_base64(image))
     try :
-        response = curl_cffi.requests.post(
+        response = requests.post(
             url,
             headers = {
                 "Authorization": "Bearer %s" % api_key,
@@ -342,7 +342,7 @@ def call_openai_api(url, api_key, model, prompt, images = None, max_tokens = 409
         for image in images :
             payload["images"].append(encode_file_to_base64(image))
     try :
-        response = curl_cffi.requests.post(
+        response = requests.post(
             url,
             headers = {
                 "Authorization": "Bearer %s" % api_key,
@@ -388,7 +388,7 @@ def call_anthropic_api(url, token, model, prompt, images = None, max_tokens = 40
         for image in images :
             payload["images"].append(encode_file_to_base64(image))
     try :
-        response = curl_cffi.requests.post(
+        response = requests.post(
             url,
             headers = {
                 "x-api-key": token,
@@ -438,7 +438,7 @@ def call_gemini_api(url, api_key, model, prompt, images = None, max_tokens = 409
         for image in images :
             payload["contents"]["parts"][0]["images"].append(encode_file_to_base64(image))
     try :
-        response = curl_cffi.requests.post(
+        response = requests.post(
             url,
             headers = {
                 "Content-Type" : "application/json",
