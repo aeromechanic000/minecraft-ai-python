@@ -1,5 +1,10 @@
 
 ._*
+
+*.pt
+.python-version
+uv.lock
+
 node_modules/*
 node_modules
 generated_actions/*
@@ -185,3 +190,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# Camera vision helpers (auto-generated)
+.camera_globals_helper.cjs
+.camera_canvas_helper.cjs

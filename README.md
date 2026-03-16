@@ -14,7 +14,9 @@ More detailed information can be found in [Minecraft AI Whitepapers and Technica
 
 🧜 **Meet Max**, our new AI assistant for the Minecraft AI community! Ask questions, get started with AIC profiles, or explore tutorials — Max is here to help: [Max@MinecraftAI](https://www.coze.com/s/ZmFp9aCtM/)
 
-🦾 Minecraft AI-Python is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications! 
+🐦 Follow us on Twitter: [https://x.com/aeromechan71402](https://x.com/aeromechan71402)
+
+🦾 Minecraft AI-Python is under development, more functions are added and optimized. If you have any question, welcome to join the our Discord server for more communications!
 
 <a href="https://discord.gg/RKjspnTBmb" target="_blank"><img src="https://s2.loli.net/2025/04/18/CEjdFuZYA4pKsQD.png" alt="Official Discord Server" width="180" height="32"></a>
 
@@ -28,6 +30,70 @@ More detailed information can be found in [Minecraft AI Whitepapers and Technica
     <td><img src="https://s2.loli.net/2025/04/09/CKwbHroZaj4xJSU.gif" alt="Minecraft AI-Python: LLM-Driven Minecraft Agents in Python" width="380" height="220"></td>
 </tr>
 </table>
+
+---
+
+## 🧠 Design Philosophy: Cognitive Metabolism
+
+Traditional AI agents operate on a **Linear Execution** model: they wait for input, process it, and produce output. This works well for chatbots, but falls short for embodied agents that should feel "alive" in a persistent world.
+
+Minecraft AI-Python introduces **Cognitive Metabolism** — a cyclic model where the agent continuously thinks, plans, and acts, even without player input.
+
+### From Linear to Cyclic
+
+```
+Traditional Agent:          Cognitive Metabolism:
+                            ┌─────────────────────┐
+Input → Process → Output    │   IDLE → REFLECT    │
+                            │     ↑         ↓     │
+                            │     ACT   ←  PLAN   │
+                            └─────────────────────┘
+```
+
+Instead of being reactive-only, the agent proactively generates its own goals, reflects on its situation, and takes initiative — much like a living creature.
+
+### Core Principles
+
+**1. Emergent Identity**
+
+The agent's personality isn't just a prompt — it's a seed that grows into a unique identity. If `longterm_thinking` is empty, the agent generates its own aspirations from the profile during the "Foundational Reflection" on first spawn. This identity then influences all future decisions, creating consistency and depth.
+
+**2. Handshake Protocol**
+
+Autonomy without alignment is chaos. When the agent wants to do something self-driven, it announces its intent:
+
+> "[Proposal] I want to explore the caves to the north. I'll proceed in 30 seconds unless you have other plans."
+
+This creates a collaborative dynamic: the agent takes initiative but remains responsive to player direction. Any player message cancels the proposal, keeping the human in the loop.
+
+**3. Persistent Memory & Goals**
+
+The agent remembers past interactions, maintains relationships with players, and tracks long-term goals. If interrupted (e.g., server restart), it resumes where it left off:
+
+> "I'm resuming: building the farmhouse foundation."
+
+This persistence creates the illusion of a continuous conscious experience.
+
+**4. Reflective Self-Improvement**
+
+Through periodic self-reflection, the agent:
+- Summarizes recent experiences into memory
+- Updates its understanding of player relationships
+- Adjusts its `longterm_thinking` based on significant events
+- Derives lessons from successes and failures
+
+This isn't just memory — it's learning and character development.
+
+### Why This Matters
+
+For the **Embodied Turing Test**, the question isn't "Can AI think?" but "Can AI play with us?" A true gaming companion should:
+
+- **Take initiative** — not just wait for commands
+- **Have personality** — consistent behavior that reflects a unique character
+- **Stay aligned** — autonomous but not uncontrolled
+- **Remember and grow** — relationships and skills that develop over time
+
+Cognitive Metabolism is our approach to creating agents that feel alive — not just intelligent, but present.
 
 ---
 
@@ -145,124 +211,408 @@ Edit `settings.json` with the correct game connection settings:
 A bot profile defines an AI character's name, personality, and backend model. Set the profiles to activate in `settings.json`:
 
 ```json
-"agents": ["./max.json"]
+"agents": ["./profiles/max.json"]
 ```
 
-Here’s a minimal example of `max.json`:
+Here's a minimal example of `profiles/max.json`:
 
 ```json
 {
     "username": "Max",
     "profile": "You are a smart Minecraft agent following your own heart...",
     "longterm_thinking": "I aim to become a reliable builder and problem-solver...",
-    "self_driven_thinking_timer" : null,
-    "provider": "ollama",
-    "model": "llama3.2"
-}
-```
-
-🛎️ **It is recommended** to set `self_driven_thinking_timer` to an integer such as `100` or `1000`.
-When `self_driven_thinking_timer` is not `null`, the bot will perform a reflection step every time it completes an action. Additionally, this timer serves as a delay before triggering autonomous reflection when the bot is idle.
-The timer value represents the number of laps the bot should wait. A lap refers to one interval between two consecutive "time" events in the Mineflayer framework, which occurs approximately every `20` game ticks.
-Since there are about `10,000` ticks per hour in Minecraft, you can estimate how long each interval lasts in real-world time by doing the math based on your `self_driven_thinking_timer` value.
-
-> 🔍 Explore more sample profiles in the `profiles/` directory.
-
-### 5. Configure AI Model Access
-
-To supply API keys for LLM backends:
-
-1. Copy `model.example.json` to `model.json`;
-2. Fill in your API keys for the models you want to use:
-
-```json
-{
-    "OpenAI": {
-        "api_key" : "",
-        "url": "https://api.openai.com/v1/responses"
-    },
-    "DeepSeek": {
-        "api_key": "",
-        "url": "https://api.deepseek.com/chat/completions"
+    "self_driven_thinking_timer": 1000,
+    "proposal_grace_period": 30,
+    "llm": {
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o",
+        "api_key": "env:OPENAI_API_KEY"
     }
 }
 ```
 
-> 🔐 **Best Practice**: Use [environment variables](https://github.com/aeromechanic000/minecraft-ai/blob/main/tutorials/set_an_api_key_as_an_environment_variable.md) instead of hardcoding keys. If a key in `keys.json` is blank, Minecraft AI will automatically attempt to read it from your environment variables.
+**Profile Configuration Fields:**
 
-Then configure the desired provider and model of the bot profile:
+| Field | Description |
+|-------|-------------|
+| `username` | Bot's in-game name |
+| `profile` | Personality description |
+| `longterm_thinking` | Long-term goals. **Can be empty** - will be auto-generated from profile on first spawn |
+| `self_driven_thinking_timer` | Ticks between idle reflections. **Master switch** - when `null`, ALL reflection is disabled |
+| `proposal_grace_period` | Seconds to wait before executing autonomous actions (default: 30) |
+| `modes` | Behavioral mode configuration (see below) |
+
+🛎️ **It is recommended** to set `self_driven_thinking_timer` to an integer such as `100` or `1000`.
+
+**Reflection Triggers:**
+- **Action completion** - Always triggers reflection when a goal is completed or failed
+- **Player message** - Always triggers reflection when receiving a message while idle
+- **Idle timer** - Only triggers if `self_driven_thinking_timer` is not `null`
+
+When `self_driven_thinking_timer` is **`null`**: The bot will NOT autonomously reflect while idle, but WILL reflect when finishing tasks or receiving player messages.
+
+When `self_driven_thinking_timer` is **not `null`**: The bot will also reflect autonomously after the timer expires while idle.
+
+The timer value represents the number of laps the bot should wait before idle reflection. A lap refers to one interval between two consecutive "time" events in the Mineflayer framework, which occurs approximately every `20` game ticks.
+Since there are about `10,000` ticks per hour in Minecraft, you can estimate how long each interval lasts in real-world time by doing the math based on your `self_driven_thinking_timer` value.
+
+🧠 **Identity Generation**: If `longterm_thinking` is empty or not provided, the agent will automatically generate its long-term goals from the profile on first spawn. This makes the agent "come alive" with derived aspirations that match its personality.
+
+🤝 **Handshake Protocol**: When the agent wants to perform autonomous actions (self-driven tasks), it announces its intent and waits for the `proposal_grace_period` before executing. Players can interrupt by sending any message. This keeps the agent aligned with player intentions while still being proactive.
+
+### Behavioral Modes
+
+The bot has a reactive behavioral modes system that responds immediately to urgent situations. Configure modes in the profile:
 
 ```json
-"provider" : "openai",
-"model" : "gpt-4o"
+{
+    "modes": {
+        "self_preservation": true,
+        "unstuck": true,
+        "cowardice": false,
+        "self_defense": true,
+        "cheat": false
+    }
+}
 ```
 
-✅ A full list of supported API providers and models is available in the table below.
+**Available Modes:**
+
+| Mode | Default | Description |
+|------|---------|-------------|
+| `self_preservation` | ON | Respond to drowning, burning, and low health |
+| `unstuck` | ON | Get unstuck when blocked for too long |
+| `cowardice` | OFF | Run away from enemies (alternative to self_defense) |
+| `self_defense` | ON | Attack nearby hostile enemies |
+| `cheat` | OFF | Use cheats for instant block placement |
+
+- **Reactive**: Modes run every tick (~1 second) for immediate response to urgent situations
+- **Interruptible**: Modes like `self_preservation` and `self_defense` can interrupt any ongoing action
+- **Web Monitor**: Mode states are displayed and can be toggled in real-time through the web interface
+
+### Web Viewer (First-Person Camera)
+
+You can enable a web-based viewer to see what the bot sees in real-time. Add these fields to your bot profile:
+
+```json
+{
+    "viewer_port": 3000,
+    "viewer_first_person": true,
+    "viewer_distance": 6
+}
+```
+
+**Viewer Configuration:**
+
+| Field | Description |
+|-------|-------------|
+| `viewer_port` | Port for the web viewer (e.g., 3000) |
+| `viewer_first_person` | Set to `true` for first-person view |
+| `viewer_distance` | Render distance in chunks (default: 6) |
+
+After starting the bot, open `http://localhost:3000` in your browser to see the bot's view.
+
+### Web Monitor
+
+The Web Monitor provides a browser-based dashboard to view bot status, toggle behavioral modes, and monitor activity in real-time.
+
+Enable it in `settings.json`:
+
+```json
+{
+    "web_monitor": {
+        "enabled": true,
+        "port": 8080,
+        "state_write_interval_ms": 500
+    }
+}
+```
+
+**Web Monitor Configuration:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Enable/disable the web monitor |
+| `port` | `8080` | Port for the web interface |
+| `state_write_interval_ms` | `500` | How often to update bot state |
+
+After starting the bot, open `http://localhost:8080` in your browser to access the monitor.
+
+**Features:**
+- View all connected bots and their status
+- See bot health, hunger, position, and inventory
+- Toggle behavioral modes in real-time
+- Monitor current goals and actions
+
+**Prerequisites:**
+- Python dependencies: `fastapi`, `uvicorn`
+
+Install dependencies:
+```bash
+pip install fastapi uvicorn
+# or with uv
+uv add fastapi uvicorn
+```
+
+### Vision System (Object Detection)
+
+The Vision System allows the bot to "see" and understand its environment using RT-DETR-L object detection. Detected objects are included in the bot's decision-making context.
+
+#### Enable Vision
+
+Add the `vision` configuration to your bot profile:
+
+```json
+{
+    "viewer_port": 3000,
+    "viewer_first_person": true,
+    "vision": {
+        "enabled": true,
+        "model": "rtdetr-l.pt",
+        "confidence_threshold": 0.3,
+        "cache_ttl_seconds": 2
+    }
+}
+```
+
+**Vision Configuration:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Enable/disable vision system |
+| `model` | `"rtdetr-l.pt"` | RT-DETR model to use |
+| `confidence_threshold` | `0.3` | Minimum confidence for detections |
+| `cache_ttl_seconds` | `2` | Cache TTL to avoid redundant captures |
+
+**Prerequisites:**
+- `viewer_port` must be set (required for screenshot capability)
+- Python dependencies: `ultralytics`, `torch`, `Pillow` (included in `pyproject.toml`)
+
+**Available Models:**
+
+| Model | Size | Description |
+|-------|------|-------------|
+| `rtdetr-s.pt` | ~22 MB | Small, fastest |
+| `rtdetr-m.pt` | ~40 MB | Medium |
+| `rtdetr-l.pt` | ~64 MB | Large (recommended) |
+| `rtdetr-x.pt` | ~130 MB | Extra large, most accurate |
+
+**First Run:**
+When you first start a bot with vision enabled and the model isn't downloaded, you'll see:
+```
+[Vision] Model download required
+  Model: rtdetr-l.pt
+  Size: ~64 MB
+  Available disk space: 50000 MB
+
+  This model will be downloaded from Ultralytics CDN.
+Download the vision model? [y/N]:
+```
+
+Type `y` to download, or `n` to start without vision.
+
+**Vision in Action:**
+When the bot makes decisions, it receives visual context like:
+```
+Here is what you see through your vision (objects detected in your current view):
+- 1 cow (center-middle, confidence: 85%)
+- 2 sheep (positions: left-middle, right-middle, avg confidence: 78%)
+- 1 tree (center-top, confidence: 92%)
+```
+
+> 🔍 Explore more sample profiles in the `profiles/` directory.
+
+### 5. Configure LLM Provider
+
+The `llm` configuration in the bot profile supports any OpenAI-compatible API. You can configure:
+
+- `base_url`: The API endpoint URL
+- `model`: The model identifier
+- `api_key`: Your API key (use `env:VAR_NAME` to read from environment variable)
+
+#### Setting API Keys
+
+You can set API keys directly or use environment variables:
+
+```json
+"llm": {
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o",
+    "api_key": "env:OPENAI_API_KEY"
+}
+```
+
+Then export the environment variable:
+
+```bash
+export OPENAI_API_KEY="sk-your-api-key-here"
+```
+
+> 🔐 **Best Practice**: Use environment variables (`env:VAR_NAME`) instead of hardcoding keys in profile files.
+
+#### Tag-Specific Provider Configuration
+
+You can configure different LLM providers for different tasks by adding tag-specific overrides:
+
+```json
+{
+    "llm": {
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o",
+        "api_key": "env:OPENAI_API_KEY",
+        "memory": {
+            "model": "gpt-4o-mini"
+        },
+        "reflection": {
+            "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+            "model": "doubao-1-5-pro-32k-250115",
+            "api_key": "env:DOUBAO_API_KEY"
+        },
+        "decide": {
+            "model": "gpt-4o"
+        },
+        "new_action": {
+            "model": "gpt-4o"
+        }
+    }
+}
+```
+
+Available tags:
+- **`memory`**: Used for memory summarization tasks
+- **`reflection`**: Used for self-driven thinking and reflection
+- **`decide`**: Used for action decision making
+- **`new_action`**: Used for generating custom Python actions (coding tasks)
+
+Each tag inherits from the default `llm` config and only overrides the fields you specify.
+
+#### Supported Providers and Base URLs
+
+All providers use OpenAI-compatible APIs. Just set the `base_url` and `model` in your profile:
 
 <table>
 <tr>
-    <td> <b>Provider</b> </td> 
-    <td> <b>Key</b> </td> 
-    <td> <b>Model</b> </td>
-    <td> <b>Example</b> </td>
+    <td> <b>Provider</b> </td>
+    <td> <b>Base URL</b> </td>
+    <td> <b>Environment Variable</b> </td>
+    <td> <b>Example Models</b> </td>
 </tr>
 <tr>
     <td> OpenAI </td>
-    <td> OPENAI_API_KEY </td>
-    <td> gpt-4.1, gpt-4o <br> <a href="https://platform.openai.com/docs/models">full list of models</a> </td>
-    <td> "model" : {"api" : "openai", "model" : "gpt-4o"} </td>
-</tr>
-<tr>
-    <td> Google </td>
-    <td> GEMINI_API_KEY </td>
-    <td> gemini-2.5-flash-preview-05-20 <br> <a href="https://ai.google.dev/gemini-api/docs/models">full list of models</a> </td>
-    <td> "model" : {"api" : "google", "model" : "gemini-2.5-flash-preview-05-20"} </td>
+    <td> <code>https://api.openai.com/v1</code> </td>
+    <td> <code>OPENAI_API_KEY</code> </td>
+    <td> gpt-4o, gpt-4o-mini <br> <a href="https://platform.openai.com/docs/models">full list</a> </td>
 </tr>
 <tr>
     <td> Anthropic </td>
-    <td> ANTHROPIC_API_KEY </td>
-    <td> claude-opus-4-20250514 <br> <a href="https://docs.anthropic.com/en/docs/about-claude/models/overview">full list of models</a> </td>
-    <td> "provider" : "anthropic", "model" : "claude-opus-4-20250514" </td>
+    <td> <code>https://api.anthropic.com/v1</code> </td>
+    <td> <code>ANTHROPIC_API_KEY</code> </td>
+    <td> claude-sonnet-4-20250514, claude-opus-4-20250514 <br> <a href="https://docs.anthropic.com/en/docs/about-claude/models/overview">full list</a> </td>
 </tr>
 <tr>
-    <td> Deepseek </td>
-    <td> DEEPSEEK_API_KEY </td>
-    <td> deepseek-chat, deepseek-reasoner <br> <a href="https://api-docs.deepseek.com/quick_start/pricing">full list of models</a> </td>
-    <td> "provider" : "deepseek", "model" : "deepseek-chat" </td>
+    <td> DeepSeek </td>
+    <td> <code>https://api.deepseek.com</code> </td>
+    <td> <code>DEEPSEEK_API_KEY</code> </td>
+    <td> deepseek-chat, deepseek-reasoner <br> <a href="https://api-docs.deepseek.com/quick_start/pricing">full list</a> </td>
 </tr>
 <tr>
     <td> Doubao </td>
-    <td> DOUBAO_API_KEY </td>
-    <td> doubao-1-5-pro-32k-250115 <br> <a href="https://www.volcengine.com/docs/82379/1330310">full list of models</a> </td>
-    <td> "provider" : "doubao", "model" : "doubao-1-5-pro-32k-250115" </td>
+    <td> <code>https://ark.cn-beijing.volces.com/api/v3</code> </td>
+    <td> <code>DOUBAO_API_KEY</code> </td>
+    <td> doubao-1-5-pro-32k-250115 <br> <a href="https://www.volcengine.com/docs/82379/1330310">full list</a> </td>
 </tr>
 <tr>
     <td> Qwen </td>
-    <td> QWEN_API_KEY </td>
-    <td> qwen-max, qwen-plus <br> <a href="https://help.aliyun.com/zh/model-studio/getting-started/models">full list of models</a> </td>
-    <td> "provider" : "qwen", "model" : "qwen-max" </td>
+    <td> <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code> </td>
+    <td> <code>QWEN_API_KEY</code> </td>
+    <td> qwen-max, qwen-plus <br> <a href="https://help.aliyun.com/zh/model-studio/getting-started/models">full list</a> </td>
+</tr>
+<tr>
+    <td> Google Gemini </td>
+    <td> <code>https://generativelanguage.googleapis.com/v1beta</code> </td>
+    <td> <code>GEMINI_API_KEY</code> </td>
+    <td> gemini-2.0-flash <br> <a href="https://ai.google.dev/gemini-api/docs/models">full list</a> </td>
+</tr>
+<tr>
+    <td> OpenRouter </td>
+    <td> <code>https://openrouter.ai/api/v1</code> </td>
+    <td> <code>OPENROUTER_API_KEY</code> </td>
+    <td> openai/gpt-4o, anthropic/claude-sonnet-4 <br> <a href="https://openrouter.ai/models">full list</a> </td>
 </tr>
 <tr>
     <td> <a href="https://pollinations.ai/">Pollinations</a> </td>
+    <td> <code>https://text.pollinations.ai/openai</code> </td>
     <td> <b>NOT REQUIRED</b> </td>
-    <td> openai-large, gemini, deepseek <br> <a href="https://text.pollinations.ai/models">full list of models</a> </td>
-    <td> "provider" : "pollinations", "model" : "openai-large"</td>
+    <td> openai-large, gemini, deepseek <br> <a href="https://text.pollinations.ai/models">full list</a> </td>
 </tr>
 <tr>
     <td> <a href="https://ollama.com/">Ollama</a> </td>
+    <td> <code>http://127.0.0.1:11434/v1</code> </td>
     <td> <b>NOT REQUIRED</b> </td>
-    <td> llama3.2, llama3.1 <br> <a href="https://ollama.com/library">full list of models</a> </td>
-    <td> "provider" : "ollama", "model" : "llama3.2"</td>
-</tr>
-<tr>
-    <td> Openrouter </td>
-    <td> OPENROUTER_API_KEY </td>
-    <td> deepseek/deepseek-chat-v3-0324:free <br> <a href="https://openrouter.ai/models">full list of models</a> </td>
-    <td> "provider" : "openrouter", "model" : "deepseek/deepseek-chat-v3-0324:free" </td>
+    <td> llama3.2, mistral <br> <a href="https://ollama.com/library">full list</a> </td>
 </tr>
 </table>
 
-🧛‍♀️ *You can also use Deepseek models through the "doubao" API.*
+> **Note:** All providers use the standard OpenAI `/chat/completions` endpoint. The `call_openai_compatible_api` function handles this automatically.
+
+#### Example Configurations
+
+**OpenAI:**
+```json
+"llm": {
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o",
+    "api_key": "env:OPENAI_API_KEY"
+}
+```
+
+**Anthropic:**
+```json
+"llm": {
+    "base_url": "https://api.anthropic.com/v1",
+    "model": "claude-sonnet-4-20250514",
+    "api_key": "env:ANTHROPIC_API_KEY"
+}
+```
+
+**DeepSeek:**
+```json
+"llm": {
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "api_key": "env:DEEPSEEK_API_KEY"
+}
+```
+
+**Doubao (with cheaper model for memory):**
+```json
+"llm": {
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "model": "doubao-1-5-pro-32k-250115",
+    "api_key": "env:DOUBAO_API_KEY",
+    "memory": {
+        "model": "doubao-1-5-lite-32k-250115"
+    }
+}
+```
+
+**Pollinations (free, no API key required):**
+```json
+"llm": {
+    "base_url": "https://text.pollinations.ai/openai",
+    "model": "openai-large",
+    "api_key": ""
+}
+```
+
+**Ollama (local, no API key required):**
+```json
+"llm": {
+    "base_url": "http://127.0.0.1:11434/v1",
+    "model": "llama3.2",
+    "api_key": ""
+}
+```
 
 ---
 

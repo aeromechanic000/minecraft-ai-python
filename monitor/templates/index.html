@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft AI Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .health-bar { background: linear-gradient(to right, #ef4444, #f87171); }
+        .hunger-bar { background: linear-gradient(to right, #f59e0b, #fbbf24); }
+        .bot-card { transition: all 0.2s ease; }
+        .bot-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
+        .bot-card.selected { ring: 2px; ring-color: #3b82f6; }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tab-active { border-bottom: 2px solid #22c55e; color: #22c55e; }
+        .modal-backdrop { background: rgba(0, 0, 0, 0.7); }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #374151;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        /* Chat message styles */
+        .chat-message {
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #374151;
+            border-left: 3px solid #4b5563;
+        }
+        .chat-message.message-type { border-left-color: #3b82f6; }
+        .chat-message.report-type { border-left-color: #22c55e; }
+        .chat-message.status-type { border-left-color: #6b7280; }
+
+        /* Decision card styles */
+        .decision-card {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            border-radius: 8px;
+            padding: 12px;
+            border-left: 3px solid #8b5cf6;
+        }
+
+        /* Mode toggle styles */
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #374151;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+        .mode-toggle:last-child {
+            margin-bottom: 0;
+        }
+        .mode-toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: #4b5563;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .mode-toggle-switch.on {
+            background: #22c55e;
+        }
+        .mode-toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        .mode-toggle-switch.on::after {
+            transform: translateX(20px);
+        }
+
+        /* Viewer panel styles */
+        .viewer-panel {
+            background: #1f2937;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .viewer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #374151;
+            border-bottom: 1px solid #4b5563;
+        }
+        .viewer-title {
+            font-weight: 600;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        .viewer-fullscreen-link {
+            font-size: 12px;
+            color: #60a5fa;
+            text-decoration: none;
+        }
+        .viewer-fullscreen-link:hover {
+            text-decoration: underline;
+        }
+        .viewer-container {
+            position: relative;
+            background: #111827;
+            height: 450px;
+        }
+        .viewer-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .viewer-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6b7280;
+        }
+        .viewer-error {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            border-radius: 8px;
+            margin: 16px;
+            color: #f87171;
+            text-align: center;
+        }
+        /* Side-by-side layout with viewer */
+        .detail-with-viewer {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 1280px) {
+            .detail-with-viewer {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header -->
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-green-400">Minecraft AI Monitor</h1>
+            <p class="text-gray-400 mt-1">Real-time bot status and control panel</p>
+        </header>
+
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-700 mb-6">
+            <button id="tab-bots" onclick="switchTab('bots')" class="px-6 py-3 text-lg font-medium tab-active">
+                Bots
+            </button>
+            <button id="tab-forum" onclick="switchTab('forum')" class="px-6 py-3 text-lg font-medium text-gray-400 hover:text-gray-200">
+                Forum
+            </button>
+        </div>
+
+        <!-- Bot Tab Content -->
+        <div id="bots-content" class="block">
+            <!-- Bot Cards Grid -->
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-300">Active Bots</h2>
+                <div id="bots-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <!-- Bot cards will be inserted here -->
+                </div>
+                <div id="no-bots" class="hidden text-center py-12 text-gray-500">
+                    <svg class="mx-auto h-12 w-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <p class="mt-4">No bots detected. Start a bot to see it here.</p>
+                </div>
+            </div>
+
+            <!-- Selected Bot Status Card (Full Width Row) -->
+            <div id="history-section" class="hidden">
+                <!-- Main Layout: Status left, Viewer right -->
+                <div id="detail-layout" class="mb-6">
+                    <div class="detail-with-viewer">
+                        <!-- Left: Status Panel -->
+                        <div id="detail-panel" class="bg-gray-800 rounded-lg p-4 fade-in">
+                            <!-- Bot Header -->
+                            <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-700">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-lg">
+                                        <span id="detail-avatar">?</span>
+                                    </div>
+                                    <div>
+                                        <h3 id="detail-username" class="text-xl font-bold text-green-400"></h3>
+                                        <p id="detail-position" class="text-sm text-gray-400 font-mono"></p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span id="detail-status" class="px-3 py-1 text-xs rounded-full bg-green-600 text-white">Online</span>
+                                    <div id="viewer-link" class="hidden">
+                                        <a id="viewer-url" href="#" target="_blank" class="text-xs text-blue-400 hover:text-blue-300">Open 3D View →</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Status Grid -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Status Summary -->
+                                <div class="bg-gray-700/50 rounded-lg p-3">
+                                    <h4 class="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Status</h4>
+                                    <p id="detail-summary" class="text-sm text-gray-200"></p>
+                                </div>
+
+                                <!-- Current Action -->
+                                <div class="bg-gray-700/50 rounded-lg p-3">
+                                    <h4 class="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Current Action</h4>
+                                    <p id="detail-action" class="text-sm font-mono text-green-300 truncate"></p>
+                                </div>
+
+                                <!-- Health & Hunger -->
+                                <div class="bg-gray-700/50 rounded-lg p-3">
+                                    <h4 class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Vitals</h4>
+                                    <div class="space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-red-400 w-12">Health</span>
+                                            <div class="flex-1 h-2 bg-gray-600 rounded-full overflow-hidden">
+                                                <div id="detail-health-bar" class="health-bar h-full transition-all duration-300"></div>
+                                            </div>
+                                            <span id="detail-health" class="text-xs text-gray-400 w-10 text-right"></span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-amber-400 w-12">Hunger</span>
+                                            <div class="flex-1 h-2 bg-gray-600 rounded-full overflow-hidden">
+                                                <div id="detail-hunger-bar" class="hunger-bar h-full transition-all duration-300"></div>
+                                            </div>
+                                            <span id="detail-hunger" class="text-xs text-gray-400 w-10 text-right"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Inventory Preview -->
+                                <div class="bg-gray-700/50 rounded-lg p-3">
+                                    <h4 class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Inventory</h4>
+                                    <div id="detail-inventory" class="flex flex-wrap gap-1 max-h-16 overflow-y-auto"></div>
+                                </div>
+                            </div>
+
+                            <!-- Modes Section -->
+                            <div class="mt-4 bg-gray-700/50 rounded-lg p-3">
+                                <h4 class="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+                                    <span class="text-yellow-400 mr-1">⚙</span>Behavioral Modes
+                                </h4>
+                                <div id="detail-modes" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <!-- Mode toggles will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Viewer Panel (shown when enabled and available) -->
+                        <div id="viewer-panel" class="viewer-panel hidden fade-in">
+                            <div class="viewer-header">
+                                <span class="viewer-title">
+                                    <span class="text-green-400 mr-2">🎮</span>3D World View
+                                </span>
+                                <a id="viewer-fullscreen-link" href="#" target="_blank" class="viewer-fullscreen-link">
+                                    Open Fullscreen →
+                                </a>
+                            </div>
+                            <div class="viewer-container">
+                                <iframe id="viewer-iframe" class="viewer-iframe" src="about:blank" style="display: none;"></iframe>
+                                <div id="viewer-placeholder" class="viewer-placeholder">
+                                    <svg class="h-12 w-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                                    </svg>
+                                    <p class="text-sm">Loading viewer...</p>
+                                </div>
+                                <div id="viewer-error" class="viewer-error hidden">
+                                    <div>
+                                        <p class="font-medium">Viewer not available</p>
+                                        <p id="viewer-error-message" class="text-sm mt-1"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat & Decisions (Two Equal Columns) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Chat History Column -->
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-semibold text-gray-200">
+                                <span class="text-blue-400 mr-2">💬</span>Chat History
+                            </h3>
+                            <span id="chat-count" class="text-xs text-gray-500 bg-gray-700 px-2 py-1 rounded"></span>
+                        </div>
+                        <div id="detail-chat" class="space-y-2 h-80 overflow-y-auto pr-2 custom-scrollbar"></div>
+                    </div>
+
+                    <!-- Recent Decisions Column -->
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-semibold text-gray-200">
+                                <span class="text-purple-400 mr-2">🧠</span>Recent Decisions
+                            </h3>
+                            <span id="decision-count" class="text-xs text-gray-500 bg-gray-700 px-2 py-1 rounded"></span>
+                        </div>
+                        <div id="detail-decisions" class="space-y-3 h-80 overflow-y-auto pr-2 custom-scrollbar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Forum Tab Content -->
+        <div id="forum-content" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Posts List -->
+                <div class="lg:col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-300">Forum Posts</h2>
+                        <button onclick="showNewPostModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium">
+                            + New Post
+                        </button>
+                    </div>
+                    <div id="posts-list" class="space-y-4">
+                        <!-- Posts will be inserted here -->
+                    </div>
+                    <div id="no-posts" class="hidden text-center py-12 text-gray-500">
+                        <svg class="mx-auto h-12 w-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <p class="mt-4">No posts yet. Create the first post!</p>
+                    </div>
+                </div>
+
+                <!-- Post Detail Panel -->
+                <div class="lg:col-span-1">
+                    <div id="post-detail-panel" class="bg-gray-800 rounded-lg p-4 sticky top-6">
+                        <div id="no-post-selected" class="text-center py-8 text-gray-500">
+                            <svg class="mx-auto h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                            </svg>
+                            <p class="mt-2">Select a post to view details</p>
+                        </div>
+
+                        <!-- Post Detail Content -->
+                        <div id="post-detail" class="hidden">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 id="post-detail-title" class="text-lg font-bold text-green-400"></h3>
+                                <div class="flex gap-2">
+                                    <button onclick="showEditPostModal()" class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded">Edit</button>
+                                    <button onclick="deletePost()" class="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 rounded">Delete</button>
+                                </div>
+                            </div>
+                            <p id="post-detail-meta" class="text-xs text-gray-400 mb-3"></p>
+                            <div id="post-detail-content" class="text-sm text-gray-300 mb-4 whitespace-pre-wrap"></div>
+
+                            <!-- Replies Section -->
+                            <div class="border-t border-gray-700 pt-4">
+                                <h4 class="text-sm font-semibold text-gray-400 mb-2">Replies</h4>
+                                <div id="post-replies" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div>
+
+                                <!-- Reply Form -->
+                                <div class="mt-3">
+                                    <textarea id="reply-content" class="w-full bg-gray-700 text-gray-100 rounded p-2 text-sm" rows="2" placeholder="Write a reply..."></textarea>
+                                    <button onclick="submitReply()" class="mt-2 px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm">Reply</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Post Modal -->
+    <div id="new-post-modal" class="hidden fixed inset-0 modal-backdrop z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4">
+            <h3 class="text-xl font-bold text-green-400 mb-4">Create New Post</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Title</label>
+                    <input id="new-post-title" type="text" class="w-full bg-gray-700 text-gray-100 rounded p-2" placeholder="Post title...">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Content</label>
+                    <textarea id="new-post-content" class="w-full bg-gray-700 text-gray-100 rounded p-2" rows="4" placeholder="Write your post content..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button onclick="hideNewPostModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded">Cancel</button>
+                    <button onclick="submitNewPost()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded">Create Post</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Post Modal -->
+    <div id="edit-post-modal" class="hidden fixed inset-0 modal-backdrop z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4">
+            <h3 class="text-xl font-bold text-green-400 mb-4">Edit Post</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Title</label>
+                    <input id="edit-post-title" type="text" class="w-full bg-gray-700 text-gray-100 rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Content</label>
+                    <textarea id="edit-post-content" class="w-full bg-gray-700 text-gray-100 rounded p-2" rows="4"></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button onclick="hideEditPostModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded">Cancel</button>
+                    <button onclick="submitEditPost()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedBot = null;
+        let selectedPostId = null;
+        let refreshInterval = null;
+        let forumRefreshInterval = null;
+        let currentTab = 'bots';
+        let viewerEnabledGlobally = window.WEB_MONITOR_CONFIG?.viewer_enabled ?? true;
+        let currentViewerPort = null;
+
+        // Tab switching
+        function switchTab(tab) {
+            currentTab = tab;
+            // Update tab styles
+            document.getElementById('tab-bots').classList.toggle('tab-active', tab === 'bots');
+            document.getElementById('tab-bots').classList.toggle('text-gray-400', tab !== 'bots');
+            document.getElementById('tab-forum').classList.toggle('tab-active', tab === 'forum');
+            document.getElementById('tab-forum').classList.toggle('text-gray-400', tab !== 'forum');
+            // Show/hide content
+            document.getElementById('bots-content').classList.toggle('hidden', tab !== 'bots');
+            document.getElementById('forum-content').classList.toggle('hidden', tab !== 'forum');
+
+            if (tab === 'forum') {
+                fetchPosts();
+            }
+        }
+
+        // ==================== Bot Functions ====================
+
+        // Fetch bot list
+        async function fetchBots() {
+            try {
+                const response = await fetch('/api/bots');
+                const data = await response.json();
+                renderBots(data.bots);
+            } catch (error) {
+                console.error('Failed to fetch bots:', error);
+            }
+        }
+
+        // Render bot cards
+        function renderBots(bots) {
+            const grid = document.getElementById('bots-grid');
+            const noBots = document.getElementById('no-bots');
+
+            if (bots.length === 0) {
+                grid.innerHTML = '';
+                noBots.classList.remove('hidden');
+                // Hide detail panels
+                document.getElementById('history-section').classList.add('hidden');
+                return;
+            }
+
+            noBots.classList.add('hidden');
+            grid.innerHTML = bots.map(bot => createBotCard(bot)).join('');
+
+            // Re-select if previously selected bot still exists
+            if (selectedBot) {
+                const exists = bots.find(b => b.username === selectedBot);
+                if (exists) {
+                    selectBot(selectedBot);
+                } else {
+                    selectedBot = null;
+                    document.getElementById('history-section').classList.add('hidden');
+                }
+            }
+        }
+
+        // Create a bot card
+        function createBotCard(bot) {
+            const healthPercent = (bot.health / 20) * 100;
+            const hungerPercent = (bot.hunger / 20) * 100;
+            const isSelected = selectedBot === bot.username;
+            const hasState = bot.timestamp && bot.timestamp.length > 0;
+
+            return `
+                <div class="bot-card bg-gray-800 rounded-lg p-4 cursor-pointer ${isSelected ? 'ring-2 ring-blue-500' : ''}"
+                     onclick="selectBot('${bot.username}', event)">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full ${hasState ? 'bg-green-500 pulse-dot' : 'bg-red-500'}"></span>
+                            <h3 class="font-bold text-lg">${bot.username}</h3>
+                        </div>
+                        <span class="text-xs text-gray-500">${bot.timestamp || 'Offline'}</span>
+                    </div>
+
+                    <!-- Health Bar -->
+                    <div class="mb-2">
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="text-red-400">Health</span>
+                            <span>${bot.health.toFixed(1)}/20</span>
+                        </div>
+                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="health-bar h-full transition-all duration-300" style="width: ${healthPercent}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Hunger Bar -->
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="text-amber-400">Hunger</span>
+                            <span>${bot.hunger.toFixed(1)}/20</span>
+                        </div>
+                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="hunger-bar h-full transition-all duration-300" style="width: ${hungerPercent}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Position -->
+                    <p class="text-xs text-gray-400 font-mono">
+                        x: ${bot.position.x}, y: ${bot.position.y}, z: ${bot.position.z}
+                    </p>
+
+                    <!-- Status Summary -->
+                    <p class="text-sm text-gray-300 mt-2 truncate" title="${bot.status_summary}">
+                        ${bot.status_summary || 'No status available'}
+                    </p>
+                </div>
+            `;
+        }
+
+        // Select a bot and show details
+        async function selectBot(username, event) {
+            selectedBot = username;
+
+            // Update card selection visually
+            document.querySelectorAll('.bot-card').forEach(card => {
+                card.classList.remove('ring-2', 'ring-blue-500');
+            });
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('ring-2', 'ring-blue-500');
+            }
+
+            // Fetch detailed info
+            try {
+                const [detailResponse, historyResponse] = await Promise.all([
+                    fetch(`/api/bots/${username}`),
+                    fetch(`/api/bots/${username}/history`)
+                ]);
+                const detail = await detailResponse.json();
+                const history = await historyResponse.json();
+
+                renderBotDetail(detail, history);
+            } catch (error) {
+                console.error('Failed to fetch bot details:', error);
+            }
+        }
+
+        // Render bot detail panel
+        function renderBotDetail(detail, history) {
+            // Show the panels
+            document.getElementById('history-section').classList.remove('hidden');
+            document.getElementById('detail-panel').classList.add('fade-in');
+
+            // Update header info
+            document.getElementById('detail-avatar').textContent = detail.username.charAt(0).toUpperCase();
+            document.getElementById('detail-username').textContent = detail.username;
+            document.getElementById('detail-position').textContent =
+                `📍 X: ${detail.position?.x || 0}, Y: ${detail.position?.y || 0}, Z: ${detail.position?.z || 0}`;
+
+            // Update status grid
+            document.getElementById('detail-summary').textContent =
+                detail.status_summary || 'No status available';
+            document.getElementById('detail-action').textContent =
+                detail.current_action || 'Idle';
+
+            // Update health and hunger bars
+            const health = detail.health || 0;
+            const hunger = detail.hunger || 0;
+            document.getElementById('detail-health-bar').style.width = `${(health / 20) * 100}%`;
+            document.getElementById('detail-health').textContent = `${health.toFixed(1)}/20`;
+            document.getElementById('detail-hunger-bar').style.width = `${(hunger / 20) * 100}%`;
+            document.getElementById('detail-hunger').textContent = `${hunger.toFixed(1)}/20`;
+
+            // Inventory
+            const inventoryEl = document.getElementById('detail-inventory');
+            if (detail.inventory && detail.inventory.length > 0) {
+                inventoryEl.innerHTML = detail.inventory.map(item =>
+                    `<span class="px-2 py-0.5 text-xs bg-gray-600 rounded">${item.count} ${item.name}</span>`
+                ).join('');
+            } else {
+                inventoryEl.innerHTML = '<span class="text-gray-500 text-xs">Empty</span>';
+            }
+
+            // Render modes
+            renderModes(detail.modes || {});
+
+            // 3D Viewer link
+            const viewerLink = document.getElementById('viewer-link');
+            const viewerUrl = document.getElementById('viewer-url');
+
+            // Handle embedded viewer panel
+            const viewerPanel = document.getElementById('viewer-panel');
+            const viewerIframe = document.getElementById('viewer-iframe');
+            const viewerPlaceholder = document.getElementById('viewer-placeholder');
+            const viewerError = document.getElementById('viewer-error');
+            const viewerFullscreenLink = document.getElementById('viewer-fullscreen-link');
+
+            const hasViewerPort = detail.viewer_port && detail.viewer_port > 0;
+            const shouldShowViewer = viewerEnabledGlobally && hasViewerPort;
+
+            if (shouldShowViewer) {
+                viewerPanel.classList.remove('hidden');
+                viewerLink.classList.add('hidden');  // Hide external link since we have embedded
+
+                const viewerPortUrl = `http://localhost:${detail.viewer_port}`;
+                viewerFullscreenLink.href = viewerPortUrl;
+
+                // Only reload iframe if port changed
+                if (currentViewerPort !== detail.viewer_port) {
+                    currentViewerPort = detail.viewer_port;
+                    viewerIframe.style.display = 'none';
+                    viewerPlaceholder.classList.remove('hidden');
+                    viewerError.classList.add('hidden');
+
+                    viewerIframe.onload = function() {
+                        viewerPlaceholder.classList.add('hidden');
+                        viewerIframe.style.display = 'block';
+                    };
+
+                    viewerIframe.onerror = function() {
+                        viewerPlaceholder.classList.add('hidden');
+                        viewerError.classList.remove('hidden');
+                        document.getElementById('viewer-error-message').textContent =
+                            `Could not connect to viewer on port ${detail.viewer_port}`;
+                    };
+
+                    viewerIframe.src = viewerPortUrl;
+                }
+            } else {
+                viewerPanel.classList.add('hidden');
+                currentViewerPort = null;
+
+                // Show external link only if viewer disabled but port exists
+                if (hasViewerPort && !viewerEnabledGlobally) {
+                    viewerLink.classList.remove('hidden');
+                    viewerUrl.href = `http://localhost:${detail.viewer_port}`;
+                } else {
+                    viewerLink.classList.add('hidden');
+                }
+            }
+
+            // Decision History
+            const decisionsEl = document.getElementById('detail-decisions');
+            const decisionCountEl = document.getElementById('decision-count');
+            const decisions = history.decision_history || [];
+
+            if (decisions.length > 0) {
+                decisionCountEl.textContent = `${decisions.length} decision${decisions.length > 1 ? 's' : ''}`;
+                decisionsEl.innerHTML = decisions.slice().reverse().map(d => `
+                    <div class="decision-card">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-purple-400 font-semibold text-sm">${escapeHtml(d.target || 'No target')}</span>
+                            ${d.is_continuation ? '<span class="text-xs text-gray-500 bg-gray-700 px-2 py-0.5 rounded">continuation</span>' : ''}
+                        </div>
+                        <p class="text-gray-400 text-xs mb-2">${escapeHtml(d.situation || '')}</p>
+                        ${d.action ? `
+                            <div class="flex items-center gap-2 text-xs">
+                                <span class="text-green-400 font-medium">→ ${d.action.name}</span>
+                                ${d.action.params ? `<span class="text-gray-500 truncate max-w-xs">${JSON.stringify(d.action.params).substring(0, 50)}...</span>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                // Auto-scroll to bottom
+                setTimeout(() => { decisionsEl.scrollTop = decisionsEl.scrollHeight; }, 10);
+            } else {
+                decisionCountEl.textContent = '0 decisions';
+                decisionsEl.innerHTML = '<p class="text-gray-500 text-center py-8">No decisions yet</p>';
+            }
+
+            // Chat History (includes messages received by the bot)
+            const chatEl = document.getElementById('detail-chat');
+            const chatCountEl = document.getElementById('chat-count');
+            const chatHistory = history.chat_history || [];
+
+            if (chatHistory.length > 0) {
+                chatCountEl.textContent = `${chatHistory.length} message${chatHistory.length > 1 ? 's' : ''}`;
+                chatEl.innerHTML = chatHistory.map(c => {
+                    // Different styling based on type
+                    let typeClass = 'status-type';
+                    let icon = '📢';
+                    if (c.type === 'report') {
+                        typeClass = 'report-type';
+                        icon = '🤖';
+                    } else if (c.type === 'message') {
+                        typeClass = 'message-type';
+                        icon = '💬';
+                    }
+                    const timeStr = c.time && c.time.length >= 3
+                        ? `<span class="text-gray-500 text-xs">Day ${c.time[0]}, ${c.time[1]}:${String(c.time[2]).padStart(2, '0')}</span>`
+                        : '';
+                    return `
+                        <div class="chat-message ${typeClass}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-semibold text-sm text-gray-200">${icon} ${escapeHtml(c.sender)}</span>
+                                ${timeStr}
+                            </div>
+                            <p class="text-gray-300 text-sm">${escapeHtml(c.content)}</p>
+                        </div>
+                    `;
+                }).join('');
+                // Auto-scroll to bottom
+                setTimeout(() => { chatEl.scrollTop = chatEl.scrollHeight; }, 10);
+            } else {
+                chatCountEl.textContent = '0 messages';
+                chatEl.innerHTML = '<p class="text-gray-500 text-center py-8">No chat history</p>';
+            }
+        }
+
+        // Mode descriptions for display
+        const modeDescriptions = {
+            'self_preservation': 'Respond to drowning, burning, and damage',
+            'unstuck': 'Get unstuck when blocked for too long',
+            'cowardice': 'Run away from enemies',
+            'self_defense': 'Attack nearby enemies',
+            'cheat': 'Use cheats for instant block placement'
+        };
+
+        // Render modes section
+        function renderModes(modes) {
+            const modesEl = document.getElementById('detail-modes');
+            if (!modes || Object.keys(modes).length === 0) {
+                modesEl.innerHTML = '<span class="text-gray-500 text-xs">No modes available</span>';
+                return;
+            }
+
+            modesEl.innerHTML = Object.entries(modes).map(([name, isOn]) => {
+                const desc = modeDescriptions[name] || name.replace(/_/g, ' ');
+                return `
+                    <div class="mode-toggle">
+                        <div class="flex-1 min-w-0">
+                            <span class="text-sm font-medium text-gray-200">${name}</span>
+                            <p class="text-xs text-gray-500 truncate">${desc}</p>
+                        </div>
+                        <div class="mode-toggle-switch ${isOn ? 'on' : ''}"
+                             onclick="toggleMode('${name}', ${isOn})"
+                             title="Click to ${isOn ? 'disable' : 'enable'}">
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Toggle a mode
+        async function toggleMode(modeName, currentState) {
+            if (!selectedBot) return;
+
+            const newState = !currentState;
+            try {
+                const response = await fetch(`/api/bots/${selectedBot}/modes`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode_name: modeName,
+                        on: newState
+                    })
+                });
+
+                if (response.ok) {
+                    // Update UI immediately (will be confirmed on next refresh)
+                    const modesEl = document.getElementById('detail-modes');
+                    const toggles = modesEl.querySelectorAll('.mode-toggle');
+                    toggles.forEach(toggle => {
+                        const nameEl = toggle.querySelector('.text-gray-200');
+                        if (nameEl && nameEl.textContent === modeName) {
+                            const switchEl = toggle.querySelector('.mode-toggle-switch');
+                            switchEl.classList.toggle('on', newState);
+                            switchEl.setAttribute('onclick', `toggleMode('${modeName}', ${newState})`);
+                        }
+                    });
+                } else {
+                    console.error('Failed to toggle mode');
+                }
+            } catch (error) {
+                console.error('Error toggling mode:', error);
+            }
+        }
+
+        // ==================== Forum Functions ====================
+
+        // Fetch forum posts
+        async function fetchPosts() {
+            try {
+                const response = await fetch('/api/forum/posts');
+                const data = await response.json();
+                renderPosts(data.posts);
+            } catch (error) {
+                console.error('Failed to fetch posts:', error);
+            }
+        }
+
+        // Render posts list
+        function renderPosts(posts) {
+            const list = document.getElementById('posts-list');
+            const noPosts = document.getElementById('no-posts');
+
+            if (posts.length === 0) {
+                list.innerHTML = '';
+                noPosts.classList.remove('hidden');
+                return;
+            }
+
+            noPosts.classList.add('hidden');
+            list.innerHTML = posts.map(post => createPostCard(post)).join('');
+
+            // Re-select if previously selected post still exists
+            if (selectedPostId) {
+                const exists = posts.find(p => p.id === selectedPostId);
+                if (exists) {
+                    selectPost(selectedPostId);
+                } else {
+                    selectedPostId = null;
+                    document.getElementById('no-post-selected').classList.remove('hidden');
+                    document.getElementById('post-detail').classList.add('hidden');
+                }
+            }
+        }
+
+        // Create a post card
+        function createPostCard(post) {
+            const isSelected = selectedPostId === post.id;
+            const replyCount = post.replies ? post.replies.length : 0;
+            const authorBadge = post.author_type === 'admin'
+                ? '<span class="text-xs px-1.5 py-0.5 bg-purple-600 rounded">Admin</span>'
+                : '<span class="text-xs px-1.5 py-0.5 bg-blue-600 rounded">Bot</span>';
+            const timestamp = formatTimestamp(post.created_at);
+
+            return `
+                <div class="bot-card bg-gray-800 rounded-lg p-4 cursor-pointer ${isSelected ? 'ring-2 ring-green-500' : ''}"
+                     onclick="selectPost('${post.id}', event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-bold text-lg truncate">${escapeHtml(post.title)}</h3>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                        ${authorBadge}
+                        <span>${escapeHtml(post.author)}</span>
+                        <span>•</span>
+                        <span>${timestamp}</span>
+                    </div>
+                    <p class="text-sm text-gray-300 line-clamp-2">${escapeHtml(post.content)}</p>
+                    <div class="mt-2 text-xs text-gray-500">${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}</div>
+                </div>
+            `;
+        }
+
+        // Select a post and show details
+        async function selectPost(postId, event) {
+            selectedPostId = postId;
+
+            // Update card selection visually
+            document.querySelectorAll('#posts-list .bot-card').forEach(card => {
+                card.classList.remove('ring-2', 'ring-green-500');
+            });
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('ring-2', 'ring-green-500');
+            }
+
+            // Fetch detailed info
+            try {
+                const response = await fetch(`/api/forum/posts/${postId}`);
+                const post = await response.json();
+                renderPostDetail(post);
+            } catch (error) {
+                console.error('Failed to fetch post details:', error);
+            }
+        }
+
+        // Render post detail panel
+        function renderPostDetail(post) {
+            document.getElementById('no-post-selected').classList.add('hidden');
+            document.getElementById('post-detail').classList.remove('hidden');
+            document.getElementById('post-detail').classList.add('fade-in');
+
+            document.getElementById('post-detail-title').textContent = post.title;
+            document.getElementById('post-detail-content').textContent = post.content;
+
+            const authorBadge = post.author_type === 'admin'
+                ? '<span class="px-1.5 py-0.5 bg-purple-600 rounded">Admin</span>'
+                : '<span class="px-1.5 py-0.5 bg-blue-600 rounded">Bot</span>';
+            const timestamp = formatTimestamp(post.created_at);
+            const updated = post.updated_at !== post.created_at ? ` (edited ${formatTimestamp(post.updated_at)})` : '';
+            document.getElementById('post-detail-meta').innerHTML = `${authorBadge} ${escapeHtml(post.author)} • ${timestamp}${updated}`;
+
+            // Render replies
+            const repliesEl = document.getElementById('post-replies');
+            if (post.replies && post.replies.length > 0) {
+                repliesEl.innerHTML = post.replies.map(reply => {
+                    const replyBadge = reply.author_type === 'admin'
+                        ? '<span class="px-1 py-0.5 bg-purple-600 rounded">Admin</span>'
+                        : '<span class="px-1 py-0.5 bg-blue-600 rounded">Bot</span>';
+                    const replyTime = formatTimestamp(reply.created_at);
+                    return `
+                        <div class="bg-gray-700 rounded p-2 text-sm">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center gap-2">
+                                    ${replyBadge}
+                                    <span class="font-medium">${escapeHtml(reply.author)}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-500">${replyTime}</span>
+                                    <button onclick="deleteReply('${reply.id}')" class="text-xs text-red-400 hover:text-red-300">×</button>
+                                </div>
+                            </div>
+                            <p class="text-gray-300">${escapeHtml(reply.content)}</p>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                repliesEl.innerHTML = '<p class="text-gray-500 text-sm">No replies yet</p>';
+            }
+        }
+
+        // Format timestamp for display
+        function formatTimestamp(ts) {
+            if (!ts) return 'Unknown';
+            // Format: YYYYMMDD_HHMMSS_mmm
+            const match = ts.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_?(\d+)?/);
+            if (match) {
+                const [, year, month, day, hour, min, sec] = match;
+                return `${year}-${month}-${day} ${hour}:${min}:${sec}`;
+            }
+            return ts;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Modal functions
+        function showNewPostModal() {
+            document.getElementById('new-post-title').value = '';
+            document.getElementById('new-post-content').value = '';
+            document.getElementById('new-post-modal').classList.remove('hidden');
+        }
+
+        function hideNewPostModal() {
+            document.getElementById('new-post-modal').classList.add('hidden');
+        }
+
+        function showEditPostModal() {
+            if (!selectedPostId) return;
+            // Get current post data
+            const title = document.getElementById('post-detail-title').textContent;
+            const content = document.getElementById('post-detail-content').textContent;
+            document.getElementById('edit-post-title').value = title;
+            document.getElementById('edit-post-content').value = content;
+            document.getElementById('edit-post-modal').classList.remove('hidden');
+        }
+
+        function hideEditPostModal() {
+            document.getElementById('edit-post-modal').classList.add('hidden');
+        }
+
+        // Submit new post
+        async function submitNewPost() {
+            const title = document.getElementById('new-post-title').value.trim();
+            const content = document.getElementById('new-post-content').value.trim();
+
+            if (!title || !content) {
+                alert('Please fill in both title and content');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/forum/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        author: 'Admin',
+                        author_type: 'admin'
+                    })
+                });
+
+                if (response.ok) {
+                    hideNewPostModal();
+                    fetchPosts();
+                } else {
+                    alert('Failed to create post');
+                }
+            } catch (error) {
+                console.error('Error creating post:', error);
+                alert('Error creating post');
+            }
+        }
+
+        // Submit edit post
+        async function submitEditPost() {
+            if (!selectedPostId) return;
+
+            const title = document.getElementById('edit-post-title').value.trim();
+            const content = document.getElementById('edit-post-content').value.trim();
+
+            if (!title || !content) {
+                alert('Please fill in both title and content');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/forum/posts/${selectedPostId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+
+                if (response.ok) {
+                    hideEditPostModal();
+                    fetchPosts();
+                    selectPost(selectedPostId, null);
+                } else {
+                    alert('Failed to update post');
+                }
+            } catch (error) {
+                console.error('Error updating post:', error);
+                alert('Error updating post');
+            }
+        }
+
+        // Delete post
+        async function deletePost() {
+            if (!selectedPostId) return;
+            if (!confirm('Are you sure you want to delete this post?')) return;
+
+            try {
+                const response = await fetch(`/api/forum/posts/${selectedPostId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    selectedPostId = null;
+                    document.getElementById('no-post-selected').classList.remove('hidden');
+                    document.getElementById('post-detail').classList.add('hidden');
+                    fetchPosts();
+                } else {
+                    alert('Failed to delete post');
+                }
+            } catch (error) {
+                console.error('Error deleting post:', error);
+                alert('Error deleting post');
+            }
+        }
+
+        // Submit reply
+        async function submitReply() {
+            if (!selectedPostId) return;
+
+            const content = document.getElementById('reply-content').value.trim();
+            if (!content) {
+                alert('Please enter a reply');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/forum/posts/${selectedPostId}/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: content,
+                        author: 'Admin',
+                        author_type: 'admin'
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('reply-content').value = '';
+                    fetchPosts();
+                    selectPost(selectedPostId, null);
+                } else {
+                    alert('Failed to add reply');
+                }
+            } catch (error) {
+                console.error('Error adding reply:', error);
+                alert('Error adding reply');
+            }
+        }
+
+        // Delete reply
+        async function deleteReply(replyId) {
+            if (!selectedPostId || !replyId) return;
+            if (!confirm('Delete this reply?')) return;
+
+            try {
+                const response = await fetch(`/api/forum/posts/${selectedPostId}/replies/${replyId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    fetchPosts();
+                    selectPost(selectedPostId, null);
+                } else {
+                    alert('Failed to delete reply');
+                }
+            } catch (error) {
+                console.error('Error deleting reply:', error);
+                alert('Error deleting reply');
+            }
+        }
+
+        // Initialize
+        function init() {
+            fetchBots();
+            // Refresh bot list every 1 second
+            refreshInterval = setInterval(() => {
+                if (currentTab === 'bots') fetchBots();
+            }, 1000);
+            // Refresh forum posts every 3 seconds when on forum tab
+            forumRefreshInterval = setInterval(() => {
+                if (currentTab === 'forum') fetchPosts();
+            }, 3000);
+        }
+
+        // Start when DOM is ready
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

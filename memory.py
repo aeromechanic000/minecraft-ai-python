@@ -1,16 +1,14 @@
 
 import threading
-from enhancer import *
 from model import *
 from world import *
 from utils import *
 
 class Memory(object) : 
-    def __init__(self, agent) : 
+    def __init__(self, agent) :
         self.agent = agent
         self.summarize_thread = None
         self.records = []
-        self.target, self.plan, self.progress = None, [], 0
         self.last_summarize_record_time = None
         self.last_process_record_time = None
         self.summary, self.longterm_thinking = "", "" 
@@ -23,48 +21,27 @@ class Memory(object) :
         if not os.path.isdir(os.path.dirname(self.history_path)) : 
             os.makedirs(os.path.dirname(self.history_path))  
         self.load()
-    
-    def update_plan(self, target, plan) : 
-        self.target = target
-        self.plan = plan
-        self.progress = 0 if self.plan is not None and len(self.plan) > 0 else None
-    
-    def update_progress(self, progress) : 
-        self.progress = max(0, progress, min(progress, len(self.plan) - 1))
-    
-    def get_plan(self) : 
-        return {
-            "target" : self.target,
-            "plan" : self.plan,
-            "progress" : self.progress,
-        }
-    
+
     def load(self) : 
         if os.path.isfile(self.memory_path) :
             data = read_json(self.memory_path)
             self.skin_path = data.get("skin_path", None)
-            if self.agent.settings.get("load_memory", False) == True : 
+            if self.agent.settings.get("load_memory", False) == True :
                 self.summary = data.get("summary", "")
                 self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
                 self.topics = data.get("topics", {})
                 self.bank = data.get("bank", {})
                 self.records += data.get("records", [])
-                self.target = data.get("target", None)
-                self.plan = data.get("plan", [])
-                self.progress = data.get("progress", None)
 
-    def save(self) : 
-        if os.path.isdir(os.path.dirname(self.memory_path)) : 
+    def save(self) :
+        if os.path.isdir(os.path.dirname(self.memory_path)) :
             write_json({
-                "summary" : self.summary, 
-                "longterm_thinking" : self.longterm_thinking, 
+                "summary" : self.summary,
+                "longterm_thinking" : self.longterm_thinking,
                 "topics" : self.topics,
-                "bank" : self.bank, 
-                "skin_path" : self.skin_path, 
+                "bank" : self.bank,
+                "skin_path" : self.skin_path,
                 "records" : self.get_records(10, True),
-                "target" : self.target,
-                "plan" : self.plan,
-                "progress" : self.progress,
             }, self.memory_path) 
         if os.path.isdir(os.path.dirname(self.history_path)) : 
             write_json({"records" : self.records}, self.history_path) 
@@ -151,8 +128,8 @@ class Memory(object) :
 ```
 ''',
             ]
-            provider, model = self.agent.get_provider_and_model("memory")
-            llm_result = call_llm_api_with_enhancer(self.agent, provider, model, prompt, context, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096))
+            llm_config = self.agent.get_llm_config("memory")
+            llm_result = call_llm_api_with_enhancer(llm_config, prompt, None, context, json_keys, examples, max_tokens = self.agent.configs.get("max_tokens", 4096), agent = self.agent)
             add_log(title = self.agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "memory", print = False)
             data = llm_result["data"]
             if data is not None :
@@ -174,10 +151,30 @@ class Memory(object) :
                 if any([summary, longterm_thinking, topics]) :
                     self.save()
 
-    def update(self, record) : 
-        record["time"], record["timelabel"] = self.agent.get_mc_time(), get_datetime_stamp() 
+    def update(self, record) :
+        record["time"], record["timelabel"] = self.agent.get_mc_time(), get_datetime_stamp()
         self.records.append(record)
         self.save()
+
+        # Trigger reflection check for significant record types
+        self._trigger_reflection_check(record)
+
+    def _trigger_reflection_check(self, record):
+        """Check if memory update should trigger self-reflection.
+
+        Called automatically after update() for significant record types.
+        """
+        if record["type"] in ["message", "reflection"]:
+            if self.agent.working_process is None:
+                # Emit reflection check event for the agent to handle
+                try:
+                    self.agent.bot.emit("reflection_check", record)
+                except Exception as e:
+                    add_log(
+                        title = self.agent.pack_message("Failed to emit reflection check."),
+                        content = "Exception: %s" % e,
+                        label = "warning"
+                    )
     
     def clear_messages_to_work(self) : 
         if len(self.records) > 0 :

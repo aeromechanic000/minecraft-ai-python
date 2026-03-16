@@ -1,5 +1,4 @@
 
-from enhancer import *
 from model import *
 from world import *
 from utils import *
@@ -71,8 +70,17 @@ Please follow the steps below:
 ''',
     ]
 
-    provider, model = agent.get_provider_and_model("reflection")
-    llm_result = call_llm_api_with_enhancer(agent, provider, model, prompt, context, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
+    llm_config = agent.get_llm_config("reflection")
+    llm_result = call_llm_api_with_enhancer(
+        llm_config,                                                # config
+        prompt,                                                     # prompt
+        None,                                                       # settings
+        context=context,                                            # context
+        json_keys=json_keys,                                        # json_keys
+        examples=examples,                                          # examples
+        max_tokens=agent.configs.get("max_tokens", 4096),          # max_tokens
+        agent=agent                                                 # agent
+    )
     add_log(title = agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "agent", print = False)
     data = llm_result["data"]
     if data is not None and data.get("message", None) is not None :
@@ -226,8 +234,17 @@ $CODING_EXAMPLES
             prompt = prompt.replace("$PREVIOUS_ATTAMP_LOGS", "")
 
         add_log(title = agent.pack_message("Built prompt."), content = prompt, label = "coding", print = False)
-        provider, model = agent.get_provider_and_model("new_action")
-        llm_result = call_llm_api_with_enhancer(agent, provider, model, prompt, json_keys, examples, max_tokens = agent.configs.get("max_tokens", 4096))
+        llm_config = agent.get_llm_config("new_action")
+        llm_result = call_llm_api_with_enhancer(
+            llm_config,                                              # config
+            prompt,                                                     # prompt
+            None,                                                        # settings (not used)
+            None,                                                        # context
+            json_keys,                                                   # json_keys
+            examples,                                                   # examples
+            max_tokens=agent.configs.get("max_tokens", 4096),          # max_tokens
+            agent=agent                                                 # agent
+        )
         add_log(title = agent.pack_message("Get LLM response:"), content = json.dumps(llm_result, indent = 4), label = "coding", print = False)
         data = llm_result["data"]
         if data is not None :
@@ -326,15 +343,15 @@ def get_primary_actions() :
             "perform" : go_to_position, 
         },
         {
-            "name" : "go_to_player", 
+            "name" : "go_to_player",
             "description": "Go to the given player.",
             "params": {
                 "player_name": {"type" : "string", "description" : "The name of the player to go to."},
                 "closeness": {"type" : "float", "description" : "How close to get to the player. If no special reason, closeness should be set to 1."},
             },
-            "perform" : go_to_player, 
+            "perform" : go_to_player,
         },
-        {   
+        {
             "name" : "search_entity",
             "description" : "search for the nearest entity of a given name.",
             "params" : {

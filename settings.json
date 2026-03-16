@@ -1,14 +1,25 @@
 {
     "host" : "127.0.0.1",
-    "port" : 55916,
+    "port" : 25565,
     "minecraft_version" : "1.21.1",
     "auth": "offline",
     "insecure_coding_rounds" : 0,
     "action_rag_limit" : 10,
     "load_memory" : false,
     "memory_bank_size" : 20,
-    "ignore_actions" : [], 
+    "ignore_actions" : [],
     "ignore_messages" : [],
     "plugins" : [],
-    "agents" : ["./profiles/max.json"]
+    "agents" : ["./profiles/max.json"],
+    "decision_history_size": 5,
+    "benchmark_api_url": "http://:5999",
+    "use_enhancer": false,
+    "tick_interval_ms": 1000,
+    "cerebellum_interrupt": true,
+    "web_monitor": {
+        "enabled": true,
+        "port": 8080,
+        "state_write_interval_ms": 500,
+        "viewer_enabled": true
+    }
 }

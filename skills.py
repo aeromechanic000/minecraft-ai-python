@@ -211,9 +211,14 @@ def search_entity(agent, entity_name, range = 64, min_distance = 2) :
     entity_pos = get_entity_position(entity)
     if agent_pos is not None and entity_pos is not None :
         distance = agent_pos.distanceTo(entity_pos)
-        agent.bot.chat("Found %s %s blocks away. I am going there." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(distance)))
-        go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, min_distance)
-    else : 
+        agent.bot.chat("Found %s %s blocks away." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(distance)))
+        # Only move if not already close enough to attack (10 blocks = within attack range)
+        if distance > 10:
+            agent.bot.chat("I am going there.")
+            go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, min_distance)
+        else:
+            agent.bot.chat("I'm already close enough.")
+    else :
         agent.bot.chat("Some errors here. Let me try again.")
     return True
 
@@ -236,19 +241,15 @@ def chat(agent, player_name, message) :
             message = "@%s %s" % (player_name, message)
     agent.bot.chat(message)
 
-def go_to_player(agent, player_name, closeness = 1) : 
+def go_to_player(agent, player_name, closeness = 1) :
     """Move the agent to the specified player within a 'closeness' distance; call with go_to_player(agent, player_name, closeness)."""
     player = agent.bot.players[player_name]
     player_pos = get_entity_position(player.entity)
-    if player_pos is not None :  
+    if player_pos is not None :
         chat(agent, player_name, "I am moving to you.")
         go_to_position(agent, player_pos.x, player_pos.y, player_pos.z, closeness)
-        agent_pos = get_entity_position(agent.bot.entity)
-        while agent_pos is not None and player_pos is not None and agent_pos.distanceTo(player_pos) > closeness + 3 : 
-            time.sleep(0.5) 
-            agent_pos = get_entity_position(agent.bot.entity)
         chat(agent, player_name, "I am here.")
-    else : 
+    else :
         chat(agent, player_name, "I can't find where you are.")
 
 def use_door(agent, door_pos = None) :
@@ -416,30 +417,71 @@ def fight(agent, entity_name, kill = False) :
         agent.bot.chat("I can't find any %s to attack." % get_entity_display_name(get_entity_id(entity_name)))
         return False
 
-def attack_entity(agent, entity, kill = False) : 
+def attack_entity(agent, entity, kill = False) :
     """Attack the entity, and kill it if `kill` is `True`; call with attack_entity(agent, entity, kill)."""
+    # Maximum time to spend attacking (in seconds)
+    MAX_ATTACK_DURATION = 60
+
     entity_pos = get_entity_position(entity)
-    if entity_pos is not None : 
+    if entity_pos is not None :
         equip_highest_attack(agent)
-        add_log(title = agent.pack_message("Attack Entity"), content = "Attack \"%s\"." % entity.name, label = "action") 
-        if kill == False :
+        add_log(title = agent.pack_message("Attack Entity"), content = "Attack \"%s\"." % entity.name, label = "action")
+
+        # Check if target is a player - players don't "die" and disappear
+        is_player = entity.name == "player" or hasattr(entity, 'type') and entity.type == 'player'
+
+        if kill == False or is_player :
+            # Single attack mode (for non-kill or players)
             agent_pos = get_entity_position(agent.bot.entity)
             if agent_pos is not None and agent_pos.distanceTo(entity_pos) > 5 :
                 go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z)
             agent.bot.attack(entity)
-            agent.bot.chat("I attacked %s." % entity.name)
+            if is_player:
+                agent.bot.chat("I attacked %s. (Players don't stay dead, so I'll stop here.)" % entity.name)
+            else:
+                agent.bot.chat("I attacked %s." % entity.name)
         else :
+            # Kill mode with timeout for mobs
             agent.bot.pvp.attack(entity)
+            start_time = time.time()
+            attack_count = 0
+
             while any(et.id == entity.id for et in get_nearest_entities(agent, 24, 64)) :
-                time.sleep(1.0)
+                elapsed = time.time() - start_time
+
+                # Check timeout
+                if elapsed > MAX_ATTACK_DURATION :
+                    agent.bot.chat("I've been fighting %s for too long. Taking a break." % entity.name)
+                    agent.bot.pvp.stop()
+                    add_log(
+                        title = agent.pack_message("Attack timeout"),
+                        content = "Exceeded max attack duration of %ds for %s" % (MAX_ATTACK_DURATION, entity.name),
+                        label = "warning"
+                    )
+                    return False
+
+                # Check interruption
                 if agent.bot.interrupt_code :
                     agent.bot.pvp.stop()
                     return False
+
+                time.sleep(0.5)  # Reduced sleep time for better responsiveness
+                attack_count += 1
+
+                # Log progress every 10 seconds
+                if attack_count % 20 == 0:
+                    add_log(
+                        title = agent.pack_message("Still fighting"),
+                        content = "Fighting %s for %.1fs" % (entity.name, elapsed),
+                        label = "action",
+                        print = False
+                    )
+
             agent.bot.chat("I killed %s." % entity.name)
             pickup_nearby_items(agent)
-    else : 
+    else :
         agent.bot.chat("I can't locate the \"%s\"." % entity.name)
-        add_log(title = agent.pack_message("Can't get the entity's position."), label = "action", print = False) 
+        add_log(title = agent.pack_message("Can't get the entity's position."), label = "action", print = False)
     return False
 
 def pickup_nearby_items(agent, max_distance = 8, num = 8) : 

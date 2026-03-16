@@ -1,0 +1,16 @@
+[project]
+name = "minecraft-ai-python"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "javascript>=1!1.2.6",
+    "json5>=0.13.0",
+    "requests>=2.32.5",
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "ultralytics>=8.0.0",
+    "torch>=2.0.0",
+    "Pillow>=10.0.0",
+]

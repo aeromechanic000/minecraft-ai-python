@@ -1,5 +1,5 @@
 
-import inspect, functools, re
+import os, inspect, functools, re
 import datetime, json
 import math, random
 import logging, warnings
@@ -33,10 +33,37 @@ def read_json(filepath, init_cls = dict) :
     return data
 
 def write_json(data, filepath) :
+    """Write data to JSON file atomically.
+
+    Uses a temp file + rename to prevent corruption if the process
+    is interrupted during write.
+    """
     result = False
-    with open(filepath, "w") as f :
-        json.dump(data, f, indent = 4)
+    def json_serializer(obj):
+        """Custom JSON serializer for non-serializable objects."""
+        if hasattr(obj, '__dict__'):
+            return obj.__dict__
+        elif hasattr(obj, 'toString'):
+            return obj.toString()
+        else:
+            return str(obj)
+
+    # Write to temp file first, then rename for atomicity
+    temp_filepath = filepath + ".tmp"
+    try:
+        with open(temp_filepath, "w") as f:
+            json.dump(data, f, indent=4, default=json_serializer)
+        # Atomic rename (on POSIX systems)
+        os.replace(temp_filepath, filepath)
         result = True
+    except Exception as e:
+        # Clean up temp file if something went wrong
+        try:
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+        except Exception:
+            pass
+        raise e
     return result
 
 class bstyles:
@@ -178,7 +205,7 @@ def clean_string(s):
 def count_words_in_string(s, keywords):
     count = 0
     for word in keywords :
-        if word in s.split(" ") :
+        if word in s :
             count += 1
     return count
 
@@ -244,13 +271,12 @@ def get_top_k_strings(keywords, strings, top_k) :
     for i, s in enumerate(strings) :
         result.append((i, s, count_words_in_string(s, keywords)))
     result.sort(key = lambda x: x[2], reverse=True)
-    if len(result) > 0 and result[0][2] > 0 : 
-        result = result[:top_k]
+    result = result[:top_k]
     return result
 
 def simple_rag(query, records, top_k = 5) : 
     keywords = get_keywords(clean_string(query))
     top_k_result = get_top_k_strings(keywords, [clean_string(r) for r in records], top_k)
-    return [item[:2] for item in top_k_result]
+    return [item[0:2] for item in top_k_result]
 
 

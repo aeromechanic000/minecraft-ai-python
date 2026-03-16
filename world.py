@@ -1,17 +1,21 @@
 
 import math, time, functools
 
-from javascript import require, On 
+from javascript import require, On
 
 from utils import *
 
 mineflayer = require('mineflayer')
 pathfinder = require('mineflayer-pathfinder')
+pathfinder_plugin = pathfinder.pathfinder  # The actual plugin to load
 minecraft_data = require('minecraft-data')
 pvp = require('mineflayer-pvp')
+pvp_plugin = pvp.plugin  # The actual plugin to load
 prismarine_items = require('prismarine-item')
 collect_block = require('mineflayer-collectblock')
+collect_block_plugin = collect_block.plugin  # The actual plugin to load
 auto_eat = require('mineflayer-auto-eat')
+auto_eat_plugin = auto_eat.plugin  # The actual plugin to load (or auto_eat.loader in some versions)
 armor_manager = require('mineflayer-armor-manager')
 vec3 = require('vec3')
 
