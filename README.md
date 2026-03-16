@@ -168,19 +168,40 @@ If individual packages fail to install, you can try:
   ```
 * Or using a pre-downloaded package: see [Use a Local Node Package](./tutorials/use_a_local_node_package.md)
 
-#### 2.2 Install Python Modules  
+#### 2.2 Install Python Modules
 
-Create a virtual environment with Python 3.10 using Anaconda:
+We recommend using `uv` for fast Python package management:
 
 ```bash
-conda create -n mc python=3.10
-conda activate mc
+# Install uv (macOS/Linux)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or with Homebrew
+brew install uv
 ```
 
-Install Python dependencies:
+Then create the virtual environment and install dependencies:
 
 ```bash
-pip install -r requirements.txt
+uv sync
+```
+
+This creates a `.venv` directory and installs all dependencies from `pyproject.toml`.
+
+**Alternative (pip/conda):**
+
+If you prefer traditional methods:
+
+```bash
+# Using conda
+conda create -n mc python=3.13
+conda activate mc
+pip install javascript json5 requests fastapi uvicorn ultralytics torch Pillow
+
+# Or using venv
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install javascript json5 requests fastapi uvicorn ultralytics torch Pillow
 ```
 
 #### 2.3 Install Minecraft Client
@@ -223,10 +244,22 @@ Here's a minimal example of `profiles/max.json`:
     "longterm_thinking": "I aim to become a reliable builder and problem-solver...",
     "self_driven_thinking_timer": 1000,
     "proposal_grace_period": 30,
+    "resume_task_on_spawn": false,
+    "skin": {"file": "./skins/max.png"},
     "llm": {
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-4o",
         "api_key": "env:OPENAI_API_KEY"
+    },
+    "modes": {
+        "self_preservation": true,
+        "unstuck": true,
+        "cowardice": false,
+        "self_defense": true,
+        "cheat": false
+    },
+    "cerebellum": {
+        "narrate_behavior": false
     }
 }
 ```
@@ -238,9 +271,12 @@ Here's a minimal example of `profiles/max.json`:
 | `username` | Bot's in-game name |
 | `profile` | Personality description |
 | `longterm_thinking` | Long-term goals. **Can be empty** - will be auto-generated from profile on first spawn |
-| `self_driven_thinking_timer` | Ticks between idle reflections. **Master switch** - when `null`, ALL reflection is disabled |
+| `self_driven_thinking_timer` | Ticks between idle reflections. When `null`, only disables idle reflection (action completion and player message reflection still work) |
 | `proposal_grace_period` | Seconds to wait before executing autonomous actions (default: 30) |
+| `resume_task_on_spawn` | Resume unfinished tasks when bot reconnects (default: false) |
+| `skin` | Bot skin configuration: `{"file": "path/to/skin.png"}` |
 | `modes` | Behavioral mode configuration (see below) |
+| `cerebellum` | Reflex system configuration (see below) |
 
 🛎️ **It is recommended** to set `self_driven_thinking_timer` to an integer such as `100` or `1000`.
 
@@ -290,6 +326,31 @@ The bot has a reactive behavioral modes system that responds immediately to urge
 - **Interruptible**: Modes like `self_preservation` and `self_defense` can interrupt any ongoing action
 - **Web Monitor**: Mode states are displayed and can be toggled in real-time through the web interface
 
+### Cerebellum (Reflex System)
+
+The Cerebellum is a high-frequency reflex system that handles automatic responses. It runs every tick and provides immediate reactive behaviors without LLM calls.
+
+Configure it in the profile:
+
+```json
+{
+    "cerebellum": {
+        "narrate_behavior": false
+    }
+}
+```
+
+**Cerebellum Configuration:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `narrate_behavior` | `false` | If `true`, prints attack completion logs to console |
+
+The Cerebellum works alongside the modes system:
+- **Self-preservation reflexes**: Escape fire, lava, surface when drowning
+- **Self-defense reflexes**: Attack nearby hostile entities
+- **Attack cooldown**: 8-second cooldown between self-defense attacks on the same target
+
 ### Web Viewer (First-Person Camera)
 
 You can enable a web-based viewer to see what the bot sees in real-time. Add these fields to your bot profile:
@@ -323,7 +384,8 @@ Enable it in `settings.json`:
     "web_monitor": {
         "enabled": true,
         "port": 8080,
-        "state_write_interval_ms": 500
+        "state_write_interval_ms": 500,
+        "viewer_enabled": true
     }
 }
 ```
@@ -335,6 +397,7 @@ Enable it in `settings.json`:
 | `enabled` | `false` | Enable/disable the web monitor |
 | `port` | `8080` | Port for the web interface |
 | `state_write_interval_ms` | `500` | How often to update bot state |
+| `viewer_enabled` | `true` | Enable/disable 3D world viewer in monitor |
 
 After starting the bot, open `http://localhost:8080` in your browser to access the monitor.
 
@@ -343,6 +406,7 @@ After starting the bot, open `http://localhost:8080` in your browser to access t
 - See bot health, hunger, position, and inventory
 - Toggle behavioral modes in real-time
 - Monitor current goals and actions
+- 3D world viewer (when `viewer_enabled` is true)
 
 **Prerequisites:**
 - Python dependencies: `fastapi`, `uvicorn`
@@ -356,7 +420,15 @@ uv add fastapi uvicorn
 
 ### Vision System (Object Detection)
 
-The Vision System allows the bot to "see" and understand its environment using RT-DETR-L object detection. Detected objects are included in the bot's decision-making context.
+The Vision System allows the bot to "see" and understand its environment using multiple detection backends. Detected objects are included in the bot's decision-making context.
+
+#### Supported Detectors
+
+| Detector | Description | Best For |
+|----------|-------------|----------|
+| `yolo` | YOLOv8-based detection (default) | Minecraft players and mobs |
+| `rtdetr` | RT-DETR object detection | General object detection |
+| `vlm` | Vision Language Model | Rich scene understanding via API |
 
 #### Enable Vision
 
@@ -368,9 +440,11 @@ Add the `vision` configuration to your bot profile:
     "viewer_first_person": true,
     "vision": {
         "enabled": true,
-        "model": "rtdetr-l.pt",
+        "detector": "yolo",
+        "model": "https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt",
         "confidence_threshold": 0.3,
-        "cache_ttl_seconds": 2
+        "cache_ttl_seconds": 2,
+        "max_saved_screenshots": 10
     }
 }
 ```
@@ -380,32 +454,99 @@ Add the `vision` configuration to your bot profile:
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `false` | Enable/disable vision system |
-| `model` | `"rtdetr-l.pt"` | RT-DETR model to use |
-| `confidence_threshold` | `0.3` | Minimum confidence for detections |
+| `detector` | `"yolo"` | Detector type: `yolo`, `rtdetr`, or `vlm` |
+| `model` | (varies) | Model URL or path for yolo/rtdetr; API model name for vlm |
+| `confidence_threshold` | `0.3` | Minimum confidence for detections (yolo/rtdetr only) |
 | `cache_ttl_seconds` | `2` | Cache TTL to avoid redundant captures |
+| `max_saved_screenshots` | `10` | Max screenshots to keep (0 = keep none) |
+| `vlm` | `{}` | VLM-specific config (see below) |
 
 **Prerequisites:**
 - `viewer_port` must be set (required for screenshot capability)
 - Python dependencies: `ultralytics`, `torch`, `Pillow` (included in `pyproject.toml`)
 
-**Available Models:**
+#### YOLO Detector (Default)
+
+YOLO is the default detector, optimized for Minecraft entities:
+
+```json
+{
+    "vision": {
+        "enabled": true,
+        "detector": "yolo",
+        "model": "https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt",
+        "confidence_threshold": 0.3
+    }
+}
+```
+
+**Available YOLO Models:**
+
+| Model | Description |
+|-------|-------------|
+| `https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt` | Minecraft mobs & blocks (default) |
+| `https://github.com/styalai/player-detection-on-Minecraft-with-YOLOv8/raw/main/...` | Player detection only |
+
+#### RT-DETR Detector
+
+General-purpose object detection:
+
+```json
+{
+    "vision": {
+        "enabled": true,
+        "detector": "rtdetr",
+        "model": "https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt",
+        "confidence_threshold": 0.3
+    }
+}
+```
+
+**Available RT-DETR Models:**
 
 | Model | Size | Description |
 |-------|------|-------------|
-| `rtdetr-s.pt` | ~22 MB | Small, fastest |
-| `rtdetr-m.pt` | ~40 MB | Medium |
 | `rtdetr-l.pt` | ~64 MB | Large (recommended) |
 | `rtdetr-x.pt` | ~130 MB | Extra large, most accurate |
+
+> **Note:** RT-DETR is a general-purpose detector. Labels like "person" may represent players or mobs, not actual humans.
+
+#### VLM Detector (Vision Language Model)
+
+Rich scene understanding using LLM APIs:
+
+```json
+{
+    "vision": {
+        "enabled": true,
+        "detector": "vlm",
+        "model": "gpt-4o",
+        "vlm": {
+            "base_url": "https://api.openai.com/v1",
+            "api_key": "env:OPENAI_API_KEY",
+            "prompt": "Describe what you see in this Minecraft scene..."
+        }
+    }
+}
+```
+
+**VLM Configuration:**
+
+| Field | Description |
+|-------|-------------|
+| `vlm.base_url` | API base URL (falls back to agent's `llm.base_url`) |
+| `vlm.api_key` | API key (supports `env:VAR_NAME` prefix) |
+| `vlm.prompt` | Custom prompt for vision analysis (optional) |
 
 **First Run:**
 When you first start a bot with vision enabled and the model isn't downloaded, you'll see:
 ```
 [Vision] Model download required
-  Model: rtdetr-l.pt
+  Model: best.pt
   Size: ~64 MB
   Available disk space: 50000 MB
 
-  This model will be downloaded from Ultralytics CDN.
+  This model will be downloaded.
 Download the vision model? [y/N]:
 ```
 

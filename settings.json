@@ -12,7 +12,7 @@
     "plugins" : [],
     "agents" : ["./profiles/max.json"],
     "decision_history_size": 5,
-    "benchmark_api_url": "http://:5999",
+    "benchmark_api_url": "https://minecraft-ai-embodied-benchmark.megrez.plus/",
     "use_enhancer": false,
     "tick_interval_ms": 1000,
     "cerebellum_interrupt": true,
