@@ -256,6 +256,10 @@ class Camera:
         self.viewer = None
         self.world_view = None
 
+        # Delayed entity loading (to catch entities loaded after init)
+        self._entity_load_scheduled = False
+        self._entity_load_counter = 0
+
         # Import required JavaScript modules
         self._import_js_modules()
 
@@ -439,10 +443,20 @@ class Camera:
                 center
             )
             self.viewer.listen(self.world_view)
-            # Note: We skip listenToBot() to avoid "Unknown entity" errors
-            # This means entities won't be rendered, but world blocks will still show
-            # and screenshots will work fine for object detection
-            # self.world_view.listenToBot(self.bot)
+            # Listen to bot entities so players and mobs are rendered in screenshots
+            # This is essential for the vision system to detect entities
+            try:
+                self.world_view.listenToBot(self.bot)
+            except Exception as e:
+                add_log(
+                    title="[Camera] listenToBot warning",
+                    content=f"Entity rendering may be limited: {str(e)}",
+                    label="warning"
+                )
+
+            # Schedule delayed entity loading to catch entities loaded late
+            # listenToBot() only catches entities that exist at call time
+            self._schedule_entity_load()
 
             # Initialize world view asynchronously
             self._init_world_view(center)
@@ -478,6 +492,66 @@ class Camera:
                 label="error"
             )
 
+    def _schedule_entity_load(self):
+        """Schedule a delayed entity load to catch entities that loaded late.
+
+        listenToBot() only catches entities that exist at call time.
+        This delayed call re-scans bot.entities after a delay to catch
+        entities that were loaded after the initial call.
+        """
+        if self._entity_load_scheduled:
+            return
+        self._entity_load_scheduled = True
+
+        # Use a counter-based delay (called from capture())
+        # Wait ~10 capture calls before loading entities
+        self._entity_load_counter = 10
+
+    def _load_existing_entities(self):
+        """Manually emit entity events for already-loaded entities.
+
+        This ensures entities that were nearby before listenToBot() was called
+        get rendered in the scene.
+        """
+        if not self.bot.entities:
+            add_log(
+                title="[Camera] No entities to load",
+                content="bot.entities is empty",
+                label="agent"
+            )
+            return
+
+        try:
+            entities_count = 0
+            for entity_id in self.bot.entities:
+                entity = self.bot.entities[entity_id]
+                # Skip the bot itself
+                if entity == self.bot.entity:
+                    continue
+                # Emit entity event to world_view's emitter
+                # The viewer listens to this emitter and will create the mesh
+                self.world_view.emit('entity', entity)
+                entities_count += 1
+
+            if entities_count > 0:
+                add_log(
+                    title="[Camera] Loaded existing entities",
+                    content=f"Added {entities_count} entities to scene",
+                    label="agent"
+                )
+            else:
+                add_log(
+                    title="[Camera] No new entities found",
+                    content="All entities already loaded or none nearby",
+                    label="agent"
+                )
+        except Exception as e:
+            add_log(
+                title="[Camera] Entity load error",
+                content=f"Exception: {str(e)}",
+                label="warning"
+            )
+
     async def capture(self) -> Optional[str]:
         """Capture a screenshot from the bot's first-person view.
 
@@ -491,6 +565,13 @@ class Camera:
                 label="warning"
             )
             return None
+
+        # Handle delayed entity loading
+        # This catches entities that were loaded after listenToBot() was called
+        if self._entity_load_scheduled and self._entity_load_counter > 0:
+            self._entity_load_counter -= 1
+            if self._entity_load_counter == 0:
+                self._load_existing_entities()
 
         try:
             # Update camera position to bot's current position

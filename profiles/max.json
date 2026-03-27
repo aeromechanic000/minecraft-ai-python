@@ -10,7 +10,7 @@
     "vision": {
         "enabled": true,
         "detector": "yolo",
-        "model": "https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt",
+        "model": "yolov10n.pt",
         "confidence_threshold": 0.3,
         "capture_on_decision": true,
         "cache_ttl_seconds": 2,

@@ -426,7 +426,7 @@ The Vision System allows the bot to "see" and understand its environment using m
 
 | Detector | Description | Best For |
 |----------|-------------|----------|
-| `yolo` | YOLOv8-based detection (default) | Minecraft players and mobs |
+| `yolo` | YOLOv10 with LLM translation (default) | General object detection with intelligent Minecraft context |
 | `rtdetr` | RT-DETR object detection | General object detection |
 | `vlm` | Vision Language Model | Rich scene understanding via API |
 
@@ -441,7 +441,7 @@ Add the `vision` configuration to your bot profile:
     "vision": {
         "enabled": true,
         "detector": "yolo",
-        "model": "https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt",
+        "model": "yolov10n.pt",
         "confidence_threshold": 0.3,
         "cache_ttl_seconds": 2,
         "max_saved_screenshots": 10
@@ -467,29 +467,51 @@ Add the `vision` configuration to your bot profile:
 
 #### YOLO Detector (Default)
 
-YOLO is the default detector, optimized for Minecraft entities:
+YOLOv10 is the default detector, using a general-purpose model trained on the COCO dataset (80 real-world object classes). Raw detections are passed to the LLM with a translation guide, allowing intelligent interpretation in Minecraft context.
 
 ```json
 {
     "vision": {
         "enabled": true,
         "detector": "yolo",
-        "model": "https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt",
+        "model": "yolov10n.pt",
         "confidence_threshold": 0.3
     }
 }
 ```
 
-**Available YOLO Models:**
+**How it works:**
+1. YOLOv10 detects objects using real-world labels (e.g., "person", "cow", "sheep")
+2. Detection results are included in the LLM prompt with a translation guide
+3. The LLM interprets labels in Minecraft context using its knowledge of the game
 
-| Model | Description |
-|-------|-------------|
-| `https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt` | Minecraft mobs & blocks (default) |
-| `https://github.com/styalai/player-detection-on-Minecraft-with-YOLOv8/raw/main/...` | Player detection only |
+**Available YOLOv10 Models (auto-downloaded by ultralytics):**
+
+| Model | Size | Speed | Accuracy |
+|-------|------|-------|----------|
+| `yolov10n.pt` | 5.8MB | Fastest | Good (default) |
+| `yolov10s.pt` | ~15MB | Faster | Better |
+| `yolov10m.pt` | ~30MB | Balanced | Better |
+| `yolov10l.pt` | ~60MB | Slower | Best |
+| `yolov10x.pt` | ~80MB | Slowest | Best |
+
+**Custom Models:**
+
+You can also use a custom model by providing a URL or local path:
+
+```json
+{
+    "vision": {
+        "enabled": true,
+        "detector": "yolo",
+        "model": "https://your-server.com/custom-model.pt"
+    }
+}
+```
 
 #### RT-DETR Detector
 
-General-purpose object detection:
+General-purpose object detection (similar to YOLO but using DETR architecture):
 
 ```json
 {
@@ -509,7 +531,7 @@ General-purpose object detection:
 | `rtdetr-l.pt` | ~64 MB | Large (recommended) |
 | `rtdetr-x.pt` | ~130 MB | Extra large, most accurate |
 
-> **Note:** RT-DETR is a general-purpose detector. Labels like "person" may represent players or mobs, not actual humans.
+> **Note:** Like YOLO, RT-DETR is a general-purpose detector using COCO labels. The LLM interprets these in Minecraft context.
 
 #### VLM Detector (Vision Language Model)
 
@@ -539,11 +561,13 @@ Rich scene understanding using LLM APIs:
 | `vlm.prompt` | Custom prompt for vision analysis (optional) |
 
 **First Run:**
-When you first start a bot with vision enabled and the model isn't downloaded, you'll see:
+For YOLOv10 models (e.g., `yolov10n.pt`), ultralytics automatically downloads the model on first use - no manual confirmation needed.
+
+For custom model URLs, you'll see:
 ```
 [Vision] Model download required
-  Model: best.pt
-  Size: ~64 MB
+  Model: custom-model.pt
+  Size: ~XX MB
   Available disk space: 50000 MB
 
   This model will be downloaded.
@@ -553,13 +577,24 @@ Download the vision model? [y/N]:
 Type `y` to download, or `n` to start without vision.
 
 **Vision in Action:**
-When the bot makes decisions, it receives visual context like:
+When the bot makes decisions, it receives visual context with translation guide:
 ```
-Here is what you see through your vision (objects detected in your current view):
-- 1 cow (center-middle, confidence: 85%)
-- 2 sheep (positions: left-middle, right-middle, avg confidence: 78%)
-- 1 tree (center-top, confidence: 92%)
+## Visual Observation (YOLO Detection - COCO Dataset)
+
+You see the following objects through your vision system.
+**Important:** This uses a general-purpose YOLOv10 model trained on real-world objects.
+
+### Translation Guide:
+- 'person' → player, villager, zombie, skeleton, or other humanoid mob
+- 'cow', 'sheep', 'pig' → corresponding passive Minecraft mobs
+...
+
+### Detected objects:
+- person x1 (center-middle, confidence: 89%)
+- cow x2 (positions: left-middle, right-middle, avg confidence: 72%)
 ```
+
+The LLM then interprets "person" based on context (e.g., "the player who just messaged me" vs "a nearby zombie").
 
 > 🔍 Explore more sample profiles in the `profiles/` directory.
 

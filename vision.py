@@ -44,8 +44,9 @@ class DetectorType(Enum):
 # =============================================================================
 
 # Default models for each detector type (URLs)
+# YOLO uses pretrained YOLOv10 on COCO dataset - LLM translates labels to Minecraft context
 DEFAULT_MODELS = {
-    DetectorType.YOLO: "https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt",
+    DetectorType.YOLO: "yolov10n.pt",  # Pretrained on COCO, ultralytics auto-downloads
     DetectorType.RTDETR: "https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt",
     DetectorType.VLM: None,  # VLM doesn't need a local model
 }
@@ -172,28 +173,81 @@ class BaseDetector(ABC):
 # =============================================================================
 
 class YOLODetector(BaseDetector):
-    """YOLO-based detector for Minecraft player/mob detection."""
+    """YOLO-based detector using pretrained COCO model with LLM translation.
 
-    # Minecraft-specific labels mapping
-    # Maps model output labels to standardized English labels
-    MINECRAFT_LABELS = {
-        # English labels (pass-through)
-        "player": "player",
-        "zombie": "zombie",
-        "skeleton": "skeleton",
-        "creeper": "creeper",
-        "spider": "spider",
-        "enderman": "enderman",
-        "cow": "cow",
-        "pig": "pig",
-        "sheep": "sheep",
-        "chicken": "chicken",
-        # French labels from CHATDOO Minecraft-YOLOv5 model
-        "vache": "cow",
-        "cochon": "pig",
-        "villageois": "villager",
-        "mouton_blanc": "sheep",
-        "maison": "house",
+    Uses YOLOv10 pretrained on COCO dataset for general object detection.
+    Raw COCO labels are passed to the LLM with a translation guide,
+    allowing the LLM to interpret detections in Minecraft context.
+    """
+
+    # COCO dataset labels that commonly appear in Minecraft
+    # These are raw labels from the model - LLM will translate them
+    COCO_LABELS_HINTS = {
+        "person": "player, villager, zombie, skeleton, or other humanoid mob",
+        "cow": "Minecraft cow (passive mob)",
+        "sheep": "Minecraft sheep (passive mob)",
+        "pig": "Minecraft pig (passive mob)",
+        "horse": "Minecraft horse or similar rideable mob",
+        "bird": "chicken or parrot",
+        "cat": "Minecraft cat or ocelot",
+        "dog": "wolf or tamed dog",
+        "potted plant": "flower, crop, or decorative plant block",
+        "clock": "clock item or redstone component",
+        "book": "bookshelf or enchanting table",
+        "bottle": "potion bottle or glass bottle item",
+        "cup": "potion or drink item",
+        "chair": "stairs block used as seating",
+        "bench": "stairs or slab blocks",
+        "couch": "bed or stairs arrangement",
+        "bed": "Minecraft bed block",
+        "dining table": "crafting table, furnace, or similar utility block",
+        "tv": "enchanting table or decorative block",
+        "laptop": "crafting table or similar blocky interface",
+        "cell phone": "held item or small block",
+        "backpack": "shulker box or chest",
+        "umbrella": "held item or decorative block",
+        "handbag": "bundle or small storage item",
+        "tie": "decorative banner or armor trim",
+        "suitcase": "shulker box or ender chest",
+        "frisbee": "held disc item or projectile",
+        "skis": "held item or elongated block",
+        "snowboard": "boat or held item",
+        "sports ball": "slimeball, fireball, or round item",
+        "kite": "elytra or banner",
+        "baseball bat": "sword, axe, or held tool",
+        "baseball glove": "held item or armor piece",
+        "skateboard": "boat or minecart",
+        "surfboard": "boat",
+        "tennis racket": "hoe or held tool",
+        "bottle": "potion or glass bottle",
+        "wine glass": "potion bottle",
+        "fork": "held item or tool",
+        "knife": "sword or shears",
+        "spoon": "held item or shovel",
+        "bowl": "bowl item or stew",
+        "banana": "held food item",
+        "apple": "apple or golden apple",
+        "sandwich": "bread or food item",
+        "orange": "orange dye or held item",
+        "broccoli": "crop or plant block",
+        "carrot": "carrot crop or item",
+        "hot dog": "food item",
+        "pizza": "cake or food block",
+        "donut": "cake or sweet item",
+        "cake": "Minecraft cake block",
+        "chair": "stairs block",
+        "couch": "bed or stairs",
+        "potted plant": "flower in pot",
+        "bed": "bed block",
+        "mirror": "glass or reflective block",
+        "window": "glass pane or window",
+        "door": "wooden or iron door",
+        "fence": "fence or fence gate",
+        "vase": "flower pot",
+        "scissors": "shears",
+        "teddy bear": "plush mob or decorative item",
+        "hair drier": "held item",
+        "toothbrush": "held item",
     }
 
     def __init__(self, agent, config: dict):
@@ -207,7 +261,51 @@ class YOLODetector(BaseDetector):
         if not self.model_path:
             self.model_path = DEFAULT_MODELS[DetectorType.YOLO]
 
-        # Get local path (may need to download if URL)
+        # Check if this is a simple ultralytics model name (e.g., "yolov10n.pt")
+        # Ultralytics can auto-download these models
+        is_ultralytics_pretrained = (
+            not is_url(self.model_path) and
+            not os.path.isabs(self.model_path) and
+            not os.path.exists(self.model_path)
+        )
+
+        if is_ultralytics_pretrained:
+            # Let ultralytics handle the download automatically
+            try:
+                from ultralytics import YOLO
+                add_log(
+                    title=self._pack_message("Loading YOLO model"),
+                    content=f"Model: {self.model_path} (ultralytics auto-download)",
+                    label="agent"
+                )
+                self.model = YOLO(self.model_path)
+                self.model_available = True
+                add_log(
+                    title=self._pack_message("YOLO model loaded"),
+                    content=f"Model: {self.model_path}",
+                    label="success"
+                )
+                return
+            except ImportError as e:
+                print_msg(
+                    title=self._pack_message("Vision dependencies not installed"),
+                    content=f"Install with: uv add ultralytics torch Pillow\nError: {str(e)}",
+                    label="warning"
+                )
+                self.model = None
+                self.model_available = False
+                return
+            except Exception as e:
+                print_msg(
+                    title=self._pack_message("YOLO model initialization failed"),
+                    content=f"Exception: {str(e)}",
+                    label="warning"
+                )
+                self.model = None
+                self.model_available = False
+                return
+
+        # For URLs or local paths, use existing logic
         local_path = get_model_full_path(self.model_path)
 
         if not local_path:
@@ -264,8 +362,7 @@ class YOLODetector(BaseDetector):
                         conf = float(boxes.conf[i].cpu().numpy())
                         cls_id = int(boxes.cls[i].cpu().numpy())
                         label = result.names[cls_id]
-                        # Map label to English if mapping exists
-                        label = self.MINECRAFT_LABELS.get(label, label)
+                        # Keep raw COCO label - LLM will translate with context
 
                         x1, y1, x2, y2 = map(int, box)
                         center_x = (x1 + x2) // 2
@@ -297,14 +394,33 @@ class YOLODetector(BaseDetector):
             return []
 
     def format_for_llm(self, detections: List[Detection]) -> str:
-        """Format YOLO detections for LLM context."""
+        """Format YOLO detections for LLM context with translation guide."""
         lines = [
-            "## Visual Observation (YOLO Detection)",
+            "## Visual Observation (YOLO Detection - COCO Dataset)",
             "",
             "You see the following objects through your vision system. ",
-            "This uses a Minecraft-specific YOLO model trained to detect players and mobs.",
+            "**Important:** This uses a general-purpose YOLOv10 model trained on real-world objects (COCO dataset). ",
+            "The labels are real-world object names, NOT Minecraft-specific terms.",
             "",
-            "Detected objects:"
+            "### Translation Guide:",
+            "In the blocky, pixelated world of Minecraft, COCO labels map roughly as follows:",
+            "- 'person' → player, villager, zombie, skeleton, or other humanoid mob",
+            "- 'cow', 'sheep', 'pig', 'horse' → corresponding passive Minecraft mobs",
+            "- 'bird' → chicken or parrot",
+            "- 'cat' → Minecraft cat or ocelot",
+            "- 'dog' → wolf or tamed dog",
+            "- 'potted plant' → flower, crop, or plant block",
+            "- 'chair', 'bench', 'couch' → stairs or slabs used as furniture",
+            "- 'bed' → Minecraft bed block",
+            "- 'dining table' → crafting table, furnace, or utility block",
+            "- 'backpack', 'suitcase' → shulker box, chest, or ender chest",
+            "- 'bottle', 'wine glass', 'cup' → potion or drink item",
+            "- Many other objects may represent blocks, items, or held objects",
+            "",
+            "Use your knowledge of recent events, nearby entities, inventory state, ",
+            "and environmental context to interpret these detections appropriately.",
+            "",
+            "### Detected objects:"
         ]
 
         if not detections:

@@ -1094,7 +1094,7 @@ Consider: Is this action still the best use of your time? Has the situation chan
 
         # Add vision context if available
         if vision_context is not None:
-            context.append(("Visual Observation", vision_context))
+            context.append(("What You See (Vision)", vision_context))
 
         # Add memory
         memory_info = self.memory.get(20)
@@ -1252,6 +1252,9 @@ This is essential because the new_action will result in generating a custom Pyth
             self.decision_history = self.decision_history[-self.decision_history_size:]
         self._save_decision_history()
 
+        # Store the action to execute
+        action_to_execute = data.get("action")
+
         # Handle interrupt request
         if data.get("interrupt_current", False):
             reason = data.get("interrupt_reason", "Brain decision")
@@ -1262,12 +1265,10 @@ This is essential because the new_action will result in generating a custom Pyth
                 content=reason,
                 label="warning"
             )
-            # When interrupting, don't execute a new action in the same cycle
-            # Let the interrupt complete, then the next decide cycle will handle the new action
-            return None
+            # Return the action to execute after interrupting
+            # The interrupt stops current action, but we still execute the new action
 
-        # Return the action to execute
-        return data.get("action")
+        return action_to_execute
 
     def execute_action(self, action):
         """Execute an action from the decision.
@@ -1362,6 +1363,24 @@ This is essential because the new_action will result in generating a custom Pyth
         finally:
             self.working_process = None
             self.current_action_name = None
+
+            # Check if there are more steps in the plan and trigger continuation
+            if self.current_goal and self.current_goal.get("plan"):
+                plan = self.current_goal.get("plan", [])
+                current_idx = self.current_goal.get("current_step_index", 0)
+                # Advance to next step if there are more steps
+                if current_idx + 1 < len(plan):
+                    self.current_goal["current_step_index"] = current_idx + 1
+                    self._save_goal()
+                    add_log(
+                        title=self.pack_message("Continuing to next plan step"),
+                        content=f"Step {current_idx + 2}/{len(plan)}: {plan[current_idx + 1]}",
+                        label="agent"
+                    )
+                    # Enqueue plan continuation request and trigger decide
+                    record = {"type": "plan_continuation", "data": {"sender": self.bot.username, "content": f"Continuing to step {current_idx + 2}: {plan[current_idx + 1]}"}}
+                    self._enqueue_request(priority=2, source="plan_continuation", record=record)
+                    self.bot.emit("decide")
 
     def get_mc_time(self) : 
         hrs, mins = 0, 0

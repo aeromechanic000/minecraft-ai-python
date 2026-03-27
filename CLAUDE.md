@@ -274,7 +274,7 @@ The Vision System provides visual perception capabilities using multiple detecti
 
 | Detector | Description | Best For |
 |----------|-------------|----------|
-| `yolo` | YOLOv8-based detection | Minecraft players and mobs (default) |
+| `yolo` | YOLOv10 with LLM translation | General object detection with intelligent Minecraft context (default) |
 | `rtdetr` | RT-DETR object detection | General object detection |
 | `vlm` | Vision Language Model | Rich scene understanding via API |
 
@@ -332,7 +332,7 @@ The Vision System provides visual perception capabilities using multiple detecti
 Contains all vision-related functionality with a modular detector architecture:
 
 **Detector Classes:**
-- `YOLODetector` - Minecraft-specific YOLOv8 detection (default)
+- `YOLODetector` - YOLOv10 detection with LLM-based translation to Minecraft context (default)
 - `RTDETRDetector` - General-purpose RT-DETR object detection
 - `VLMDetector` - Vision Language Model analysis via API
 
@@ -359,24 +359,29 @@ Encapsulates JSPyBridge calls to JavaScript rendering libraries:
 
 ### Available Models
 
-The `model` field should be a URL to download the model, or a local path to an existing model file.
+The `model` field can be:
+- **Ultralytics pretrained model name** (e.g., `yolov10n.pt`) - auto-downloaded
+- **URL** to download a custom model
+- **Local path** to an existing model file
 
-**Default Model URLs (used if `model` is not specified):**
+**Default Models (used if `model` is not specified):**
 
-| Detector | Default URL | Description |
-|----------|-------------|-------------|
-| `yolo` | `https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt` | Minecraft mobs: cow, creeper, pig, villager, sheep, house |
-| `rtdetr` | `https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt` | General object detection |
+| Detector | Default | Description |
+|----------|---------|-------------|
+| `yolo` | `yolov10n.pt` | YOLOv10 Nano on COCO dataset (5.8MB, auto-downloaded) |
+| `rtdetr` | `https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt` | RT-DETR Large (~64MB) |
 | `vlm` | (none - uses API) | Vision Language Model |
 
-**Alternative Models:**
+**YOLOv10 Models (ultralytics auto-downloads):**
 
-| Model Key | URL | Description |
-|-----------|-----|-------------|
-| `minecraft_yolov5_chatdoo` | `https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt` | Minecraft mobs & blocks (default) |
-| `minecraft_player_yolov8_styalai` | `https://github.com/styalai/player-detection-on-Minecraft-with-YOLOv8/raw/main/player_detection%20on%20minecraft%2004%20(gpu).pt` | Player detection only |
-| `rtdetr_l` | `https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt` | RT-DETR Large (~64MB) |
-| `rtdetr_x` | `https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-x.pt` | RT-DETR Extra Large (~130MB) |
+| Model | Size | Speed | Accuracy |
+|-------|------|-------|----------|
+| `yolov10n.pt` | 5.8MB | Fastest | Good |
+| `yolov10s.pt` | ~15MB | Faster | Better |
+| `yolov10m.pt` | ~30MB | Balanced | Better |
+| `yolov10b.pt` | ~45MB | Base | Good |
+| `yolov10l.pt` | ~60MB | Slower | Best |
+| `yolov10x.pt` | ~80MB | Slowest | Best |
 
 **Custom Models:**
 
@@ -418,7 +423,7 @@ Enable vision in bot profile:
     "vision": {
         "enabled": true,
         "detector": "yolo",
-        "model": "https://raw.githubusercontent.com/CHATDOO/Minecraft-YOLOv5/main/best.pt",
+        "model": "yolov10n.pt",
         "confidence_threshold": 0.3,
         "cache_ttl_seconds": 2,
         "max_saved_screenshots": 10
@@ -489,9 +494,29 @@ Enable vision in bot profile:
 
 ### Detector Output Formats
 
-**YOLO:** "You see the following objects through your vision system. This uses a Minecraft-specific YOLO model trained to detect players and mobs."
+**YOLO (YOLOv10 + LLM Translation):** The detector uses a general-purpose YOLOv10 model trained on the COCO dataset (80 real-world object classes). Raw detections like "person", "cow", "sheep" are passed to the LLM with a translation guide. The LLM interprets these in Minecraft context using its knowledge of recent events, nearby entities, and world state.
 
-**RT-DETR:** "You see the following objects through your vision system. **Important:** This uses a general-purpose object detector (not Minecraft-specific). Labels like 'person' may represent players or mobs..."
+Example output in LLM prompt:
+```
+## Visual Observation (YOLO Detection - COCO Dataset)
+
+You see the following objects through your vision system.
+**Important:** This uses a general-purpose YOLOv10 model trained on real-world objects (COCO dataset).
+The labels are real-world object names, NOT Minecraft-specific terms.
+
+### Translation Guide:
+In the blocky, pixelated world of Minecraft, COCO labels map roughly as follows:
+- 'person' → player, villager, zombie, skeleton, or other humanoid mob
+- 'cow', 'sheep', 'pig', 'horse' → corresponding passive Minecraft mobs
+- 'bird' → chicken or parrot
+...
+
+### Detected objects:
+- person x1 (center-middle, confidence: 89%)
+- cow x2 (positions: left-middle, right-middle, avg confidence: 72%)
+```
+
+**RT-DETR:** Similar general-purpose detection with translation hints.
 
 **VLM:** Returns rich natural language descriptions based on the configured prompt.
 
