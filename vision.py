@@ -46,13 +46,29 @@ class DetectorType(Enum):
 # Default models for each detector type (URLs)
 # YOLO uses pretrained YOLOv10 on COCO dataset - LLM translates labels to Minecraft context
 DEFAULT_MODELS = {
-    DetectorType.YOLO: "yolov10n.pt",  # Pretrained on COCO, ultralytics auto-downloads
+    DetectorType.YOLO: "yolov10n.pt",  # Pretrained on COCO
     DetectorType.RTDETR: "https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt",
     DetectorType.VLM: None,  # VLM doesn't need a local model
 }
 
 # Local models directory
 MODELS_DIR = "models"
+
+# Map ultralytics pretrained model names to their download URLs
+# This allows the startup check to download them with progress bar
+# instead of relying on ultralytics' built-in auto-download
+ULTRALYTICS_MODEL_URLS = {
+    "yolov10n.pt": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov10n.pt",
+    "yolov10s.pt": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov10s.pt",
+    "yolov10m.pt": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov10m.pt",
+    "yolov10b.pt": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov10b.pt",
+    "yolov10l.pt": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov10l.pt",
+    "yolov10x.pt": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov10x.pt",
+    "rtdetr-l.pt": "https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt",
+    "rtdetr-x.pt": "https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-x.pt",
+    "rtdetr-m.pt": "https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-m.pt",
+    "rtdetr-s.pt": "https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-s.pt",
+}
 
 # Known model sizes for display purposes (URL patterns -> size in MB)
 KNOWN_MODEL_SIZES = {
@@ -261,28 +277,23 @@ class YOLODetector(BaseDetector):
         if not self.model_path:
             self.model_path = DEFAULT_MODELS[DetectorType.YOLO]
 
-        # Check if this is a simple ultralytics model name (e.g., "yolov10n.pt")
-        # Ultralytics can auto-download these models
-        is_ultralytics_pretrained = (
-            not is_url(self.model_path) and
-            not os.path.isabs(self.model_path) and
-            not os.path.exists(self.model_path)
-        )
+        # Try to find the model file locally
+        local_path = get_model_full_path(self.model_path)
 
-        if is_ultralytics_pretrained:
-            # Let ultralytics handle the download automatically
+        if local_path:
+            # Use the downloaded model from models/ directory
             try:
                 from ultralytics import YOLO
                 add_log(
                     title=self._pack_message("Loading YOLO model"),
-                    content=f"Model: {self.model_path} (ultralytics auto-download)",
+                    content=f"Model: {local_path}",
                     label="agent"
                 )
-                self.model = YOLO(self.model_path)
+                self.model = YOLO(local_path)
                 self.model_available = True
                 add_log(
                     title=self._pack_message("YOLO model loaded"),
-                    content=f"Model: {self.model_path}",
+                    content=f"Model: {local_path}",
                     label="success"
                 )
                 return
@@ -1206,23 +1217,34 @@ def check_and_prepare_model(model_source: str, auto_download: bool = True) -> Tu
 
     # Check if it's a URL (can be downloaded) or local path
     if not is_url(model_source):
-        # Local path that doesn't exist
-        add_log(
-            title="[Vision] Model file not found",
-            content=f"Path: {model_source}",
-            label="error"
-        )
-        print_msg(
-            title="[Vision] Model file not found",
-            content=f"The specified model file does not exist:\n"
-                    f"  {model_source}\n\n"
-                    f"Please provide a valid local path or URL to the model.",
-            label="error"
-        )
+        # Check if it's a known ultralytics pretrained model name
+        # Resolve to URL so we can use the project's download flow with progress bar
+        if model_source in ULTRALYTICS_MODEL_URLS:
+            model_source = ULTRALYTICS_MODEL_URLS[model_source]
+            add_log(
+                title="[Vision] Resolved pretrained model to URL",
+                content=f"Model: {model_source}",
+                label="agent"
+            )
+            # Fall through to URL download logic below
+        else:
+            # Local path that doesn't exist
+            add_log(
+                title="[Vision] Model file not found",
+                content=f"Path: {model_source}",
+                label="error"
+            )
+            print_msg(
+                title="[Vision] Model file not found",
+                content=f"The specified model file does not exist:\n"
+                        f"  {model_source}\n\n"
+                        f"Please provide a valid local path or URL to the model.",
+                label="error"
+            )
 
-        if prompt_user("Start the agent without vision model?"):
-            return False, True
-        return False, False
+            if prompt_user("Start the agent without vision model?"):
+                return False, True
+            return False, False
 
     # It's a URL - model not found but can be downloaded
     model_size = get_model_size_mb(model_source)

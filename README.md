@@ -485,7 +485,7 @@ YOLOv10 is the default detector, using a general-purpose model trained on the CO
 2. Detection results are included in the LLM prompt with a translation guide
 3. The LLM interprets labels in Minecraft context using its knowledge of the game
 
-**Available YOLOv10 Models (auto-downloaded by ultralytics):**
+**Available YOLOv10 Models (auto-downloaded by ultralytics on first use):**
 
 | Model | Size | Speed | Accuracy |
 |-------|------|-------|----------|
@@ -494,6 +494,8 @@ YOLOv10 is the default detector, using a general-purpose model trained on the CO
 | `yolov10m.pt` | ~30MB | Balanced | Better |
 | `yolov10l.pt` | ~60MB | Slower | Best |
 | `yolov10x.pt` | ~80MB | Slowest | Best |
+
+> **Download:** YOLOv10 models are auto-downloaded by ultralytics on first use. You can also manually download them from the [ultralytics assets releases](https://github.com/ultralytics/assets/releases) and place the `.pt` file in the `models/` directory.
 
 **Custom Models:**
 
@@ -530,6 +532,10 @@ General-purpose object detection (similar to YOLO but using DETR architecture):
 |-------|------|-------------|
 | `rtdetr-l.pt` | ~64 MB | Large (recommended) |
 | `rtdetr-x.pt` | ~130 MB | Extra large, most accurate |
+
+> **Download:** RT-DETR models are auto-downloaded by ultralytics on first use. You can also manually download them from the [ultralytics assets releases](https://github.com/ultralytics/assets/releases) and place the `.pt` file in the `models/` directory:
+> - `rtdetr-l.pt` — [download](https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-l.pt)
+> - `rtdetr-x.pt` — [download](https://github.com/ultralytics/assets/releases/download/v0.0.0/rtdetr-x.pt)
 
 > **Note:** Like YOLO, RT-DETR is a general-purpose detector using COCO labels. The LLM interprets these in Minecraft context.
 
