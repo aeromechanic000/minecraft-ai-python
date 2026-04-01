@@ -116,7 +116,20 @@ def get_nearest_block(agent, block_name, max_distance = 64) :
     blocks = get_nearest_blocks(agent, block_names = [block_name], max_distance = max_distance, count = 1)
     if len(blocks) > 0 :
         return blocks[0]
-    return None 
+    return None
+
+def get_nearest_blocks_by_ids(agent, block_ids, max_distance = 64, count = 16) :
+    """Find and return up to 'count' nearest blocks matching any of the given 'block_ids' within 'max_distance' blocks; call with get_nearest_blocks_by_ids(agent, block_ids, max_distance, count)."""
+    blocks = []
+    positions = agent.bot.findBlocks({"matching" : block_ids, "maxDistance" : max_distance, "count" : count})
+    agent_pos = get_entity_position(agent.bot.entity)
+    if agent_pos is not None :
+        for i in range(positions.length) :
+            block = agent.bot.blockAt(positions[i])
+            dist = positions[i].distanceTo(agent_pos)
+            blocks.append({"block" : block, "distance" : dist})
+    blocks = sorted(blocks, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distance"]))
+    return [block["block"] for block in blocks]
 
 def get_nearest_item(agent, distance = 1) :
     """Find and return the closest dropped item entity within 'distance' blocks; call with get_nearest_item(agent, distance)."""
@@ -137,13 +150,22 @@ def get_nearest_item(agent, distance = 1) :
     return nearest_item
 
 def search_block(agent, block_name, range = 64, min_distance = 2) :
-    """Search the world for a block named 'block_name' within a given 'range' but at least 'min_distance' away from the agent; call with search_block(agent, block_name, range, min_distance)."""
+    """Search the world for a block named 'block_name' within a given 'range' but at least 'min_distance' away from the agent; call with search_block(agent, block_name, range, min_distance). Supports relaxed matching: e.g., searching 'bed' will also find 'red_bed'."""
     range = min(512, range)
     block = get_nearest_block(agent, block_name, range)
+    matched_name = block_name
     if block is None :
-        agent.bot.chat("I can't find any %s in %s blocks." % (get_display_name_of_block(block_name), math.floor(range)))
+        # Fallback: search by keyword (substring match) for relaxed matching (e.g., "bed" matches "red_bed")
+        keyword_ids = get_block_ids_by_keyword(block_name)
+        if len(keyword_ids) > 0 :
+            blocks = get_nearest_blocks_by_ids(agent, keyword_ids, range, 1)
+            if len(blocks) > 0 :
+                block = blocks[0]
+                matched_name = block.name
+    if block is None :
+        agent.bot.chat("I can't find any %s in %s blocks." % (block_name, math.floor(range)))
         return False
-    agent.bot.chat("Found %s at %s. I am going there." % (get_display_name_of_block(block_name), block.position))
+    agent.bot.chat("Found %s at %s. I am going there." % (matched_name, block.position))
     go_to_position(agent, block.position.x, block.position.y, block.position.z, min_distance)
     return True
 
@@ -202,16 +224,24 @@ def get_nearest_freespace(agent, size = 1, distance = 8) :
     return None
 
 def search_entity(agent, entity_name, range = 64, min_distance = 2) :
-    """Search for an entity named 'entity_name' within a given 'range' but farther than 'min_distance' from the agent; call with search_entity(agent, entity_name, range, min_distance)."""
+    """Search for an entity named 'entity_name' within a given 'range' but farther than 'min_distance' from the agent; call with search_entity(agent, entity_name, range, min_distance). Supports relaxed matching: e.g., searching 'bed' will also find 'red_bed'."""
     entity = get_nearest_entity_where(agent, lambda et : entity_name in et.name, range)
+    # Helper to safely get display name
+    def _display_name(name) :
+        eid = get_entity_id(name)
+        if eid is not None :
+            dn = get_entity_display_name(eid)
+            if dn is not None :
+                return dn
+        return name
     if entity is None :
-        agent.bot.chat("I can't find any %s in %s blocks." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(range)))
+        agent.bot.chat("I can't find any %s in %s blocks." % (_display_name(entity_name), math.floor(range)))
         return False
     agent_pos = get_entity_position(agent.bot.entity)
     entity_pos = get_entity_position(entity)
     if agent_pos is not None and entity_pos is not None :
         distance = agent_pos.distanceTo(entity_pos)
-        agent.bot.chat("Found %s %s blocks away." % (get_entity_display_name(get_entity_id(entity_name)), math.floor(distance)))
+        agent.bot.chat("Found %s %s blocks away." % (_display_name(entity.name), math.floor(distance)))
         # Only move if not already close enough to attack (10 blocks = within attack range)
         if distance > 10:
             agent.bot.chat("I am going there.")
@@ -270,7 +300,48 @@ def use_door(agent, door_pos = None) :
         agent.bot.activateBlock(door_block)
     return True
 
-def move_away(agent, distance) : 
+def interact_with_block(agent, block_name=None, x=None, y=None, z=None) :
+    """Right-click to interact with a block (same as player pressing use/right-click).
+    Common uses: sleep in a bed, open a chest/furnace/crafting table, flip a lever,
+    press a button, open a door/trapdoor, use an anvil/enchanting table, etc.
+    Call with either block_name (auto-finds nearest) or specific x,y,z coordinates."""
+    if x is not None and y is not None and z is not None :
+        block_pos = vec3.Vec3(x, y, z)
+    elif block_name is not None :
+        result = get_nearest_block(agent, block_name, 16)
+        if result is None :
+            agent.bot.chat("I can't find any %s nearby." % block_name)
+            return False
+        block_pos = vec3.Vec3(result["position"].x, result["position"].y, result["position"].z)
+    else :
+        agent.bot.chat("Please tell me which block to interact with.")
+        return False
+
+    go_to_position(agent, block_pos.x, block_pos.y, block_pos.z, 1)
+    block = agent.bot.blockAt(block_pos)
+    if block is None :
+        agent.bot.chat("There is no block there.")
+        return False
+    agent.bot.lookAt(block_pos)
+    agent.bot.activateBlock(block)
+    agent.bot.chat("I interacted with the %s." % block.name)
+    return True
+
+def quit_interaction(agent) :
+    """Stop the current interaction and resume normal control. Use this to: get up from a bed,
+    leave a boat/minecart, stop riding an entity, etc."""
+    if agent.bot.isSleeping :
+        agent.bot.wake()
+        agent.bot.chat("I got up from the bed.")
+    elif agent.bot.vehicle :
+        agent.bot.dismount()
+        agent.bot.chat("I dismounted.")
+    else :
+        agent.bot.deactivateItem()
+        agent.bot.chat("I stopped interacting.")
+    return True
+
+def move_away(agent, distance) :
     agent_pos = get_entity_position(agent.bot.entity)
     if agent_pos is not None :
         vector = get_random_vector(distance)

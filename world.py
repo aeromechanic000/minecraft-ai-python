@@ -104,9 +104,27 @@ def get_cant_build_off_block_names() :
 def get_block_id(block_name) :
     block_id = None
     block = mcdata.blocksByName[block_name]
-    if block is not None : 
+    if block is not None :
         block_id = block.id
     return block_id
+
+def get_block_ids_by_keyword(keyword) :
+    """Find all block IDs whose name contains the given keyword (substring match). Returns a list of block IDs."""
+    block_ids = []
+    for key in mcdata.blocks :
+        block = mcdata.blocks[key]
+        if keyword in block.name :
+            block_ids.append(block.id)
+    return block_ids
+
+def get_entity_ids_by_keyword(keyword) :
+    """Find all entity IDs whose name contains the given keyword (substring match). Returns a list of entity IDs."""
+    entity_ids = []
+    for key in mcdata.entities :
+        entity = mcdata.entities[key]
+        if keyword in entity.name :
+            entity_ids.append(entity.id)
+    return entity_ids
 
 def get_block_name(block_id) :
     block_name = None

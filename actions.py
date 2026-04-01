@@ -110,7 +110,7 @@ def get_available_apis_for_new_action() :
         get_an_item_in_inventory, get_inventory_stacks,
         get_inventory_counts, get_hotbar_counts, get_item_counts,
         equip_item, drop_item, fight,
-        craft, collect_blocks, place_block,
+        craft, collect_blocks, place_block, interact_with_block,
     ]
 
 def new_action(agent, task) :
@@ -369,7 +369,24 @@ def get_primary_actions() :
             },
             "perform" : search_block, 
         },
-        {   
+        {
+            "name" : "interact_with_block",
+            "description" : "Right-click to interact with a block (like a player pressing use). Use this to: sleep in a bed, open a chest/trapchest/barrel, open a furnace/smoker/blast furnace, use a crafting table, open a door/trapdoor/fence gate, flip a lever, press a button, use an anvil/enchanting table/brewing stand, ride a minecart, open a shulker box, etc. You can specify block_name to auto-find the nearest one, or give exact x,y,z coordinates.",
+            "params" : {
+                "block_name" : {"type": "BlockName", "description": "The name of the block to interact with (e.g. 'red_bed', 'chest', 'furnace'). Optional if x,y,z are given."},
+                "x": {"type" : "int", "description" : "The x coordinate. Optional if block_name is given."},
+                "y": {"type" : "int", "description" : "The y coordinate. Optional if block_name is given."},
+                "z": {"type" : "int", "description" : "The z coordinate. Optional if block_name is given."},
+            },
+            "perform" : interact_with_block,
+        },
+        {
+            "name" : "quit_interaction",
+            "description" : "Stop the current interaction and resume normal control. Use to get up from a bed, leave a boat or minecart, or stop any ongoing interaction.",
+            "params" : {},
+            "perform" : quit_interaction,
+        },
+        {
             "name" : "collect_blocks",
             "description" : "Collect the nearest blocks of a given type.",
             "params" : {

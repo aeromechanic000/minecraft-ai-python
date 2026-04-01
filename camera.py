@@ -25,6 +25,7 @@ _CANVAS_HELPER_FILENAME = '.camera_canvas_helper.cjs'
 
 # Store the canvas createCanvas function after loading
 _createCanvas_func = None
+_createRenderer_func = None
 
 # Keep module reference alive for JSPyBridge
 # JSPyBridge uses ffid (foreign function ID) to track objects.
@@ -101,7 +102,7 @@ def _load_canvas_helper():
     which could be garbage collected, causing subsequent calls to fail with:
     "Cannot read properties of undefined (reading 'createCanvas')"
     """
-    global _canvas_helper_loaded, _createCanvas_func, _canvas_helper_module
+    global _canvas_helper_loaded, _createCanvas_func, _canvas_helper_module, _createRenderer_func
 
     if _canvas_helper_loaded:
         return _createCanvas_func
@@ -155,10 +156,35 @@ function createCanvas(width, height) {
     if (!_createCanvas) {
         throw new Error('Canvas module not loaded: ' + loadError);
     }
-    return _createCanvas(width, height);
+    const canvas = _createCanvas(width, height);
+    // Three.js WebGLRenderer requires addEventListener/removeEventListener
+    // on the canvas, but node-canvas-webgl doesn't provide them.
+    if (canvas && typeof canvas.addEventListener !== 'function') {
+        canvas.addEventListener = function(type, listener, options) {};
+        canvas.removeEventListener = function(type, listener, options) {};
+    }
+    return canvas;
 }
 
-module.exports = { createCanvas, loadError, isLoaded: _createCanvas !== null };
+// Create canvas AND WebGLRenderer together in JS context.
+// This avoids JSPyBridge round-trip issues where the WebGL context
+// is lost when a canvas object passes through Python and back to JS.
+function createRendererWithCanvas(width, height) {
+    if (!_createCanvas) {
+        throw new Error('Canvas module not loaded: ' + loadError);
+    }
+    const canvas = _createCanvas(width, height);
+    if (canvas && typeof canvas.addEventListener !== 'function') {
+        canvas.addEventListener = function(type, listener, options) {};
+        canvas.removeEventListener = function(type, listener, options) {};
+    }
+    const THREE = require('three');
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas });
+    renderer.setSize(width, height);
+    return { canvas: canvas, renderer: renderer };
+}
+
+module.exports = { createCanvas, createRendererWithCanvas, loadError, isLoaded: _createCanvas !== null };
 '''
 
     try:
@@ -206,9 +232,18 @@ module.exports = { createCanvas, loadError, isLoaded: _createCanvas !== null };
                 return _canvas_helper_module.createCanvas(width, height)
 
             _createCanvas_func = createCanvas_wrapper
+
+            # Create a wrapper for createRendererWithCanvas that creates
+            # both canvas and WebGLRenderer in JS context, avoiding
+            # JSPyBridge round-trip issues with WebGL context.
+            def createRenderer_wrapper(width, height):
+                return _canvas_helper_module.createRendererWithCanvas(width, height)
+
+            _createRenderer_func = createRenderer_wrapper
+
             add_log(
                 title="[Camera] Canvas helper loaded",
-                content="createCanvas function available (with module reference)",
+                content="createCanvas and createRendererWithCanvas available",
                 label="success"
             )
         else:
@@ -372,39 +407,34 @@ class Camera:
         )
 
         try:
-            # Check if createCanvas is available
-            if self.createCanvas is None:
+            # Create canvas AND WebGLRenderer together in JS context.
+            # This avoids JSPyBridge round-trip issues where the WebGL context
+            # is lost when a canvas object passes through Python and back to JS.
+            # Access createRendererWithCanvas directly from the helper module.
+            if _canvas_helper_module is None:
                 add_log(
-                    title="[Camera] Cannot initialize - no canvas function",
-                    content="createCanvas is None, vision will be disabled",
+                    title="[Camera] Cannot initialize - canvas helper not loaded",
+                    content="Vision will be disabled",
                     label="error"
                 )
                 return
 
-            # Create canvas and renderer
             add_log(
-                title="[Camera] Calling createCanvas",
+                title="[Camera] Creating canvas and renderer",
                 content=f"Size: {self.width}x{self.height}",
                 label="agent"
             )
-            self.canvas = self.createCanvas(self.width, self.height)
+            result = _canvas_helper_module.createRendererWithCanvas(self.width, self.height)
+            self.canvas = result.canvas
+            self.renderer = result.renderer
 
-            if self.canvas is None:
+            if self.canvas is None or self.renderer is None:
                 add_log(
-                    title="[Camera] Canvas creation returned None",
-                    content="The createCanvas function returned null",
+                    title="[Camera] Canvas/renderer creation returned None",
+                    content=f"canvas={self.canvas}, renderer={self.renderer}",
                     label="error"
                 )
                 return
-
-            add_log(
-                title="[Camera] Canvas object created",
-                content=f"Type: {type(self.canvas)}",
-                label="agent"
-            )
-
-            self.renderer = self._three_module.WebGLRenderer.new({"canvas": self.canvas})
-            self.renderer.setSize(self.width, self.height)
 
             add_log(
                 title="[Camera] Canvas created",

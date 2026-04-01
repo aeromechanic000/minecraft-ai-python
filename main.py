@@ -1,10 +1,18 @@
 
-import os, multiprocessing, signal, subprocess
+import os, multiprocessing, signal, subprocess, shutil
 import argparse, json
 
 from agent import *
 from utils import *
 from vision import check_vision_requirements, check_and_prepare_model
+
+# Ensure JSPyBridge uses the same Node.js that native modules (gl) were compiled for.
+# Without this, subprocess.Popen resolves bare "node" via PATH which may differ
+# from the version used during npm install.
+if 'NODE_BIN' not in os.environ:
+    node_path = shutil.which('node')
+    if node_path:
+        os.environ['NODE_BIN'] = node_path
 
 # Import monitor server if available
 try:
