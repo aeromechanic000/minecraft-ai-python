@@ -413,6 +413,14 @@ def get_primary_actions() :
             "perform" : drop_item,
         },
         {
+            "name" : "consume_item",
+            "description" : "Consume (eat or drink) the given item from inventory. Use this to eat food (apple, bread, cooked_beef, etc.), drink potions, or use other consumable items like milk or honey.",
+            "params" : {
+                "item_name" : {"type" : "ItemName", "description" : "The name of the consumable item to eat or drink (e.g. 'apple', 'bread', 'potion')."},
+            },
+            "perform" : consume_item,
+        },
+        {
             "name" : "fight",
             "description" : 'Attack or kill the nearest entity of a given type.',
             "params": {

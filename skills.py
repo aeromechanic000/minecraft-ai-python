@@ -103,11 +103,12 @@ def get_nearest_blocks(agent, block_names = None, max_distance = 64, count = 16)
     blocks = []
     positions = agent.bot.findBlocks({"matching" : block_ids, "maxDistance" : max_distance, "count" : count})
     agent_pos = get_entity_position(agent.bot.entity)
-    if agent_pos is not None : 
-        for i in range(positions.length) : 
+    if agent_pos is not None :
+        for i in range(positions.length) :
             block = agent.bot.blockAt(positions[i])
             dist = positions[i].distanceTo(agent_pos)
-            blocks.append({"block" : block, "distance" : dist})
+            if dist is not None :
+                blocks.append({"block" : block, "distance" : dist})
     blocks = sorted(blocks, key = functools.cmp_to_key(lambda a, b : a["distance"] - b["distance"]))
     return [block["block"] for block in blocks]
 
@@ -194,7 +195,7 @@ def get_nearest_entities(agent, max_distance = 32, count = 16) :
         agent_pos = get_entity_position(agent.bot.entity)
         if entity_pos is not None and agent_pos is not None :
             distance = entity_pos.distanceTo(agent_pos)
-            if distance <= max_distance : 
+            if distance is not None and distance <= max_distance : 
                 entities.append({"entity" : entity, "distance" : distance})
                 if len(entities) >= count : 
                     break
@@ -865,6 +866,68 @@ def place_block(agent, block_name, x, y, z, place_on = 'bottom', dont_cheat = Fa
     agent.bot.lookAt(build_off_block.position)
     agent.bot.placeBlock(build_off_block, vec3.Vec3(*face_vec))
     agent.bot.chat("I placed %s at %s." % (get_display_name_of_block(block_name), target_dest))
+    return True
+
+def consume_item(agent, item_name) :
+    """Consume (eat or drink) the specified item from inventory; call with consume_item(agent, item_name)."""
+    item = get_an_item_in_inventory(agent, item_name)
+    if item is None :
+        agent.bot.chat("I don't have any %s to consume." % get_item_display_name(get_item_id(item_name)))
+        return False
+
+    actual_name = item.name
+
+    # Check consumable: food items are in mcdata.foodsByName, plus known drinkables
+    consumable = False
+    try :
+        if actual_name in mcdata.foodsByName :
+            consumable = True
+    except :
+        pass
+    drinkable_keywords = ['potion', 'milk_bucket', 'honey_bottle']
+    if any(k in actual_name for k in drinkable_keywords) :
+        consumable = True
+
+    if not consumable :
+        agent.bot.chat("I can't consume %s -- it's not a food or drinkable." % actual_name)
+        return False
+
+    # Stop any ongoing item use
+    if agent.bot.usingHeldItem :
+        agent.bot.deactivateItem()
+        time.sleep(0.3)
+
+    # Snapshot count before consuming (item is a live reference that updates in place)
+    count_before = item.count
+
+    # Equip to hand then activate
+    agent.bot.equip(item, 'hand')
+    time.sleep(0.3)
+    agent.bot.activateItem()
+
+    # Wait for consumption (food/potions take ~1.6s)
+    # If hunger is full, Minecraft won't play the eating animation, so
+    # usingHeldItem stays false — detect this as a failed consume
+    waited = 0.0
+    started = False
+    while waited < 3.0 :
+        time.sleep(0.2)
+        waited += 0.2
+        if agent.bot.usingHeldItem :
+            started = True
+        if started and not agent.bot.usingHeldItem :
+            break
+
+    agent.bot.deactivateItem()
+
+    # Check if the item was actually consumed (removed from inventory)
+    item_after = get_an_item_in_inventory(agent, actual_name)
+    if item_after is not None and item_after.count == count_before :
+        agent.bot.chat("I couldn't eat %s -- I'm not hungry right now." % actual_name)
+        return False
+
+    verb = "drank" if any(k in actual_name for k in drinkable_keywords) else "ate"
+    agent.bot.chat("I %s the %s." % (verb, actual_name))
     return True
 
 def remember(agent, key, value) :
