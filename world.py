@@ -160,6 +160,54 @@ def get_item_id(item_name) :
         item_id = item.id
     return item_id
 
+# Generic name aliases that map to multiple specific Minecraft items.
+# The resolve function picks the best match based on inventory contents.
+ITEM_ALIASES = {
+    "planks": ["oak_planks", "spruce_planks", "birch_planks", "jungle_planks", "acacia_planks", "dark_oak_planks", "mangrove_planks", "cherry_planks", "bamboo_planks", "crimson_planks", "warped_planks"],
+    "wood_planks": ["oak_planks", "spruce_planks", "birch_planks", "jungle_planks", "acacia_planks", "dark_oak_planks", "mangrove_planks", "cherry_planks", "bamboo_planks", "crimson_planks", "warped_planks"],
+    "log": ["oak_log", "spruce_log", "birch_log", "jungle_log", "acacia_log", "dark_oak_log", "mangrove_log", "cherry_log", "bamboo_block", "crimson_stem", "warped_stem"],
+    "wood": ["oak_log", "spruce_log", "birch_log", "jungle_log", "acacia_log", "dark_oak_log", "mangrove_log", "cherry_log", "bamboo_block", "crimson_stem", "warped_stem"],
+    "wood_log": ["oak_log", "spruce_log", "birch_log", "jungle_log", "acacia_log", "dark_oak_log", "mangrove_log", "cherry_log", "bamboo_block", "crimson_stem", "warped_stem"],
+    "boat": ["oak_boat", "spruce_boat", "birch_boat", "jungle_boat", "acacia_boat", "dark_oak_boat", "mangrove_boat", "cherry_boat", "bamboo_raft"],
+    "chest_boat": ["oak_chest_boat", "spruce_chest_boat", "birch_chest_boat", "jungle_chest_boat", "acacia_chest_boat", "dark_oak_chest_boat", "mangrove_chest_boat", "cherry_chest_boat", "bamboo_chest_raft"],
+    "coal": ["coal", "charcoal"],
+    "stripped_log": ["stripped_oak_log", "stripped_spruce_log", "stripped_birch_log", "stripped_jungle_log", "stripped_acacia_log", "stripped_dark_oak_log", "stripped_mangrove_log", "stripped_cherry_log", "stripped_crimson_stem", "stripped_warped_stem"],
+    "stripped_wood": ["stripped_oak_wood", "stripped_spruce_wood", "stripped_birch_wood", "stripped_jungle_wood", "stripped_acacia_wood", "stripped_dark_oak_wood", "stripped_mangrove_wood", "stripped_cherry_wood", "stripped_crimson_hyphae", "stripped_warped_hyphae"],
+    "wood_slab": ["oak_slab", "spruce_slab", "birch_slab", "jungle_slab", "acacia_slab", "dark_oak_slab", "mangrove_slab", "cherry_slab", "bamboo_slab", "crimson_slab", "warped_slab"],
+    "wood_stairs": ["oak_stairs", "spruce_stairs", "birch_stairs", "jungle_stairs", "acacia_stairs", "dark_oak_stairs", "mangrove_stairs", "cherry_stairs", "bamboo_stairs", "crimson_stairs", "warped_stairs"],
+    "wood_fence": ["oak_fence", "spruce_fence", "birch_fence", "jungle_fence", "acacia_fence", "dark_oak_fence", "mangrove_fence", "cherry_fence", "bamboo_fence", "crimson_fence", "warped_fence"],
+    "wood_door": ["oak_door", "spruce_door", "birch_door", "jungle_door", "acacia_door", "dark_oak_door", "mangrove_door", "cherry_door", "bamboo_door", "crimson_door", "warped_door"],
+    "wood_trapdoor": ["oak_trapdoor", "spruce_trapdoor", "birch_trapdoor", "jungle_trapdoor", "acacia_trapdoor", "dark_oak_trapdoor", "mangrove_trapdoor", "cherry_trapdoor", "bamboo_trapdoor", "crimson_trapdoor", "warped_trapdoor"],
+    "wool": ["white_wool", "orange_wool", "magenta_wool", "light_blue_wool", "yellow_wool", "lime_wool", "pink_wool", "gray_wool", "light_gray_wool", "cyan_wool", "purple_wool", "blue_wool", "brown_wool", "green_wool", "red_wool", "black_wool"],
+    "sand": ["sand", "red_sand"],
+}
+
+def resolve_item_name(item_name, inventory=None):
+    """Resolve a generic item name to a specific Minecraft item name.
+    If inventory is provided, prefers items the bot already has materials for.
+    Returns the original name if it's already specific or not an alias."""
+    # Direct lookup - already a specific name
+    if item_name in mcdata.itemsByName:
+        return item_name
+
+    # Check if it's a known alias
+    candidates = ITEM_ALIASES.get(item_name)
+    if not candidates:
+        return item_name
+
+    # If we have inventory info, prefer candidates we can actually craft
+    if inventory:
+        for candidate in candidates:
+            if candidate in inventory and inventory[candidate] > 0:
+                return candidate
+
+    # Default to first candidate (usually oak)
+    for candidate in candidates:
+        if candidate in mcdata.itemsByName:
+            return candidate
+
+    return item_name
+
 def get_item_name(item_id) :
     item_name = None
     item = mcdata.items[item_id]

@@ -590,6 +590,10 @@ def equip_highest_attack(agent) :
 def craft(agent, item_name, num = 1) :
     """Craft 'num' items of 'item_name' if materials and recipe are available; call with craft(agent, item_name, num)."""
     placed_table = False
+    # Resolve generic names (e.g. "wood_planks" → "oak_planks") based on inventory
+    resolved = resolve_item_name(item_name, get_inventory_counts(agent))
+    if resolved != item_name :
+        item_name = resolved
     if not get_item_crafting_recipes(item_name) or len(get_item_crafting_recipes(item_name)) < 1 :
         agent.bot.chat("I don't have crafting recipe for %s." % item_name)
         return False

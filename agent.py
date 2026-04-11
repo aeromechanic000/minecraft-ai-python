@@ -1124,6 +1124,11 @@ Consider: Is this action still the best use of your time? Has the situation chan
         else:
             context.append(("Available Actions", "No available actions."))
 
+        # Add Minecraft basic knowledge
+        minecraft_basics = self._get_minecraft_basics()
+        if minecraft_basics:
+            context.append(("Minecraft Basics", minecraft_basics))
+
         # Add plugin reminders
         plugin_reminder = self.get_plugin_reminder_info()
         if plugin_reminder is not None and len(plugin_reminder.strip()) > 0:
@@ -1390,6 +1395,67 @@ This is essential because the new_action will result in generating a custom Pyth
         secs = math.floor(min(59, (t % 10000) % (10000 / 60)))
         return [self.bot.time.day, hrs, mins, secs]
 
+    def _get_minecraft_basics(self):
+        return """
+## Crafting & Inventory Mechanics
+
+### Crafting Grids
+- **2x2 Inventory Grid**: Always available in your inventory. Can craft basic items (planks, sticks, crafting table).
+- **3x3 Crafting Table**: Required for most recipes. Use `interact_with_block` with a crafting_table to access it, or place one from inventory.
+
+### Essential Crafting Recipes (use the `craft` action)
+These are recipes you should know without needing to discover them:
+
+**Important: Item Names** — Use specific Minecraft item names with the `craft` action. Common examples:
+- Planks: `oak_planks`, `birch_planks`, `spruce_planks`, etc. (NOT "wood_planks")
+- Logs: `oak_log`, `birch_log`, `spruce_log`, etc.
+- Generic names like `planks`, `wood_planks`, `log` are auto-resolved based on inventory.
+
+**From Logs (2x2 inventory grid):**
+- Log → 4 Planks (e.g., oak_log → oak_planks)
+- 2 Planks → 4 Sticks
+
+**From Planks (2x2 inventory grid):**
+- 4 Planks (2x2) → Crafting Table
+- 3 Planks (row) → 6 Signs
+
+**Tools (require Crafting Table):**
+- Stone tier: replace planks with cobblestone
+- Iron tier: replace with iron ingots (smelt iron ore in furnace)
+- Diamond tier: replace with diamonds
+- Gold tier: replace with gold ingots (smelt gold ore)
+
+**Smelting (requires Furnace):**
+- Iron Ore + fuel → Iron Ingot
+- Gold Ore + fuel → Gold Ingot
+- Sand + fuel → Glass
+- Cobblestone + fuel → Stone
+- Raw meat + fuel → Cooked meat (restores more hunger)
+- Clay Ball + fuel → Brick
+- Cactus + fuel → Green Dye
+- Log + fuel → Charcoal (acts as coal substitute)
+- Common fuel: coal, charcoal, lava bucket, blaze rod, wood items (less efficient)
+
+**Utility Items (require Crafting Table):**
+- 8 Cobblestone → Furnace
+- 8 Planks → Chest (stores 27 stacks)
+- 5 Leather → Leather Armor pieces / 5 Iron Ingots → Iron Armor / 5 Diamonds → Diamond Armor
+- 7 Iron Ingots → Bucket (3 per row left+right, 1 center bottom)
+- 3 Iron Ingots → Shears (2 diagonal)
+- 4 Iron Ingots + 1 Flint → Flint and Steel
+- 1 Iron Ingot + 1 Flint → Flint and Steel (alternate)
+
+### Key Game Mechanics
+- **Tool Durability**: Wooden=59, Stone=131, Iron=250, Diamond=1561, Gold=32 uses
+- **Mining Speed**: Better tools mine faster. Wrong tool won't drop items (e.g., pickaxe needed for stone).
+- **Tool Tiers**: Wood < Stone < Iron < Diamond < Netherite. Higher tier mines harder blocks.
+- **Block Hardness**: Some blocks require specific tool tiers (e.g., iron pickaxe needed for diamond ore, gold ore, redstone ore).
+- **Hunger**: Running/jumping drains hunger. Below 18 hunger = no health regen. At 0 hunger = take damage.
+- **Stacking**: Most items stack to 64. Tools/armor do not stack.
+- **Day/Night Cycle**: 20 minutes real time = 1 Minecraft day. Monsters spawn in darkness.
+- **Light**: Torches (1 stick + 1 coal) prevent hostile mob spawning. Place them to stay safe.
+"""
+
     def get_status_info(self) : 
         status = "\n\n- Game Mode: %s" % self.bot.game.gameMode
         status = "\n- Time: %s" % (":".join([str(x).zfill(2) for x in self.get_mc_time()]))
@@ -1401,7 +1467,7 @@ This is essential because the new_action will result in generating a custom Pyth
         status += "\n- Bot's Status of Health (from 0 to 20, where 0 for death and 20 for completely healthy): %s" % self.bot.health 
         status += "\n- Bot's Degree Of Hungry (from 0 to 20, where 0 for hungry and 20 for full): %s" % self.bot.food
         pos = get_entity_position(self.bot.entity)
-        if pos is not None : 
+        if pos is not None and pos.x is not None and pos.y is not None and pos.z is not None:
             status += "\n- Bot's Position: x: %s, y: %s, z: %s" % (math.floor(pos.x), math.floor(pos.y), math.floor(pos.z))
         add_log(title = self.pack_message("Get primary status."), content = status, print = False)
         items_in_inventory, items_info = get_item_counts(self), "" 

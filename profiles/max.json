@@ -18,7 +18,7 @@
     },
     "llm": {
         "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "model": "doubao-1-5-pro-32k-250115",
+        "model": "doubao-seed-2-0-pro-260215",
         "api_key": "env:DOUBAO_API_KEY"
     },
     "modes": {
