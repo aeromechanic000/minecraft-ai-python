@@ -376,7 +376,7 @@ def break_block_at(agent, x, y, z) :
             if not block.canHarvest(item_id) :
                 agent.bot.chat("I Don't have right tools to break %s." % block.displayName)
                 return False
-        agent.bot.dig(block, True)
+        agent.bot.dig(block, True, timeout=60)
     else :
         return False
     return True
@@ -690,18 +690,18 @@ def collect_blocks(agent, block_name, num, exclude = None) :
 
         block = blocks[0]
         agent.bot.tool.equipForBlock(block)
-        item_id = agent.bot.heldItem if agent.bot.heldItem is not None else None 
-        if not block.canHarvest(item_id) : 
+        item_id = agent.bot.heldItem.type if agent.bot.heldItem is not None else None
+        if not block.canHarvest(item_id) :
             agent.bot.chat("I dont't have right tools to harvest %s." % get_display_name_of_block(block_name))
             break
 
         if must_collect_manually(block_name) :
             go_to_position(agent, block.position.x, block.position.y, block.position.z, 2)
             time.sleep(1)
-            agent.bot.dig(block)
+            agent.bot.dig(block, timeout=60)
             pickup_nearby_items(agent)
         else :
-            agent.bot.collectBlock.collect(block)
+            agent.bot.collectBlock.collect(block, timeout=120)
         block_count = get_item_counts(agent).get(block_name, 0)
         collected = block_count - init_block_count
         auto_light(agent)
