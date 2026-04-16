@@ -241,6 +241,11 @@ def _update_cheat(agent, mode):
     pass
 
 
+def _update_high_jump(agent, mode):
+    """Water bucket clutch - handled by cerebellum physicsTick for fast response."""
+    pass
+
+
 # --- Mode Definitions ---
 
 MODES_LIST = [
@@ -288,6 +293,15 @@ MODES_LIST = [
         'active': False,
         'paused': False,
         'update': _update_cheat,
+    },
+    {
+        'name': 'high_jump',
+        'description': 'Use water bucket to survive high falls. Handled by cerebellum physicsTick for fast response.',
+        'interrupts': [],
+        'on': True,
+        'active': False,
+        'paused': False,
+        'update': _update_high_jump,
     },
 ]
 

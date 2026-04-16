@@ -229,6 +229,7 @@ The bot has a reactive behavioral modes system that responds immediately to urge
 | `cowardice` | OFF | Run away from enemies (alternative to self_defense) |
 | `self_defense` | ON | Attack nearby enemies |
 | `cheat` | OFF | Use cheats for instant block placement |
+| `high_jump` | ON | Use water bucket clutch to survive high falls |
 
 **Mode Behavior:**
 - Modes run every tick (~1 second) to provide immediate reactive responses
@@ -263,6 +264,37 @@ The Cerebellum is the reflex system that handles automatic responses. It can be 
 - Mode states are displayed in the web monitor when a bot is selected
 - Modes can be toggled in real-time through the web interface
 - Changes are picked up by the bot on the next tick
+
+### Water Bucket Clutch (high_jump mode)
+
+The `high_jump` mode enables the bot to automatically survive dangerous falls using the water bucket clutch technique. This is handled by the cerebellum's `physicsTick` handler (runs every ~50ms) rather than the regular tick loop, providing the fast response time needed for the maneuver.
+
+**How it works:**
+1. **Fall detection**: On every physics tick, checks if `bot.entity.velocity.y < -0.5` (falling)
+2. **Ground scan**: Iterates blocks downward to find the first solid block below
+3. **Safety checks**: Skips clutch if already in water, on ladder/vine/scaffolding, in creative mode, or landing on safe blocks (slime, hay bale, water, cobweb, powder snow, honey)
+4. **Clutch trigger**: When within 3-6 blocks of ground (scaled by velocity) and fall distance > 3 blocks:
+   - Looks straight down (pitch = π/2, force=True)
+   - Equips water bucket (or powder snow bucket in Nether)
+   - Places water on the ground block via `activateBlock`
+5. **Water pickup**: After landing safely, picks up the water with empty bucket
+
+**Nether support:**
+- In the Nether dimension, water evaporates. The bot automatically uses a `powder_snow_bucket` instead.
+- Falls back to regular water bucket if no powder snow bucket is available.
+
+**Configuration:**
+```json
+{
+    "modes": {
+        "high_jump": true
+    }
+}
+```
+
+**Requirements:**
+- Bot must have a `water_bucket` in inventory (or `powder_snow_bucket` for Nether)
+- Mode must be ON (default: ON)
 
 ---
 
