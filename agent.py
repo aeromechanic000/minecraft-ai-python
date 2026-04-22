@@ -349,12 +349,16 @@ class Agent(object) :
         def handle_kicked(reason, *args):
             # Extract reason string from potential object
             reason_str = reason
-            if hasattr(reason, 'toString'):
-                try:
+            try:
+                import json
+                if hasattr(reason, 'toString'):
                     reason_str = reason.toString()
-                except Exception:
-                    reason_str = str(reason)
-            elif not isinstance(reason, str):
+                elif hasattr(reason, 'text'):
+                    reason_str = reason.text
+                elif not isinstance(reason, str):
+                    # Try JSON serialization for structured kick reasons
+                    reason_str = json.dumps(str(reason))
+            except Exception:
                 reason_str = str(reason)
             add_log(title = self.pack_message("Bot kicked!"), content = f"Reason: {reason_str}", label = "error")
 

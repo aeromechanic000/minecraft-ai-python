@@ -26,6 +26,7 @@
         "unstuck": false,
         "cowardice": false,
         "self_defense": false,
-        "cheat": false
+        "cheat": false,
+        "high_jump": true
     }
 }
