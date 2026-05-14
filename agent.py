@@ -345,21 +345,31 @@ class Agent(object) :
             self.bot.quit()
             add_log(title = self.pack_message("Bot end."), label = "warning")
 
+        @On(self.bot, "death")
+        def handle_death(*args):
+            add_log(title = self.pack_message("Bot died!"), content="Health reached 0", label = "error")
+
         @On(self.bot, "kicked")
         def handle_kicked(reason, *args):
-            # Extract reason string from potential object
-            reason_str = reason
-            try:
-                import json
-                if hasattr(reason, 'toString'):
-                    reason_str = reason.toString()
-                elif hasattr(reason, 'text'):
-                    reason_str = reason.text
-                elif not isinstance(reason, str):
-                    # Try JSON serialization for structured kick reasons
-                    reason_str = json.dumps(str(reason))
-            except Exception:
-                reason_str = str(reason)
+            # Extract reason string from ChatMessage / JS object
+            reason_str = "unknown"
+            for attempt in [
+                lambda: reason.toString() if hasattr(reason, 'toString') else None,
+                lambda: str(reason.text) if hasattr(reason, 'text') else None,
+                lambda: str(reason.value) if hasattr(reason, 'value') else None,
+            ]:
+                try:
+                    result = attempt()
+                    if result and result != '[object Object]':
+                        reason_str = result
+                        break
+                except Exception:
+                    continue
+            if reason_str == "unknown":
+                try:
+                    reason_str = str(reason)
+                except Exception:
+                    reason_str = repr(type(reason))
             add_log(title = self.pack_message("Bot kicked!"), content = f"Reason: {reason_str}", label = "error")
 
         @On(self.bot, "error")

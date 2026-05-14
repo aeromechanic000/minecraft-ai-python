@@ -931,6 +931,12 @@ tail -f logs/log-*.json
 
 ---
 
+## Development Rules
+
+- **Do not create new `.js` files in this project.** This is a Python project. If you need to embed JavaScript (e.g., for mineflayer/JSPyBridge interop), include the JS code inline in a `.py` file using Python string literals — see `camera.py` and `cerebellum.py` for the established pattern.
+
+---
+
 ## Resources
 
 - [Main README](README.md)
