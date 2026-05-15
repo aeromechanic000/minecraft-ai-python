@@ -111,6 +111,16 @@ class Agent(object) :
         def handle_spawn(*args) :
             add_log(title = self.pack_message("I spawned."), label = "success", print=True)
 
+            # Reset look to face forward after spawn settles
+            # (fall clutch JS may briefly look down during the initial physics ticks)
+            def _look_forward():
+                try:
+                    self.bot.look(self.bot.entity.yaw, 0, False)
+                except Exception:
+                    pass
+            import threading
+            threading.Timer(1.0, _look_forward).start()
+
             # Only run one-time initialization on first spawn
             if not self._initial_spawn_done:
                 self._initial_spawn_done = True
@@ -511,6 +521,8 @@ class Agent(object) :
             add_log(title="State sensing error", content=str(e), label="warning", print=False)
 
     def _load_decision_history(self):
+        if not self.settings.get("load_memory", False):
+            return
         if os.path.isfile(self.decision_history_path):
             try:
                 data = read_json(self.decision_history_path)
@@ -1138,10 +1150,11 @@ Consider: Is this action still the best use of your time? Has the situation chan
         else:
             context.append(("Available Actions", "No available actions."))
 
-        # Add Minecraft basic knowledge
-        minecraft_basics = self._get_minecraft_basics()
-        if minecraft_basics:
-            context.append(("Minecraft Basics", minecraft_basics))
+        # Add Minecraft knowledge (retrieved based on relevance)
+        from knowledge import get_knowledge_context
+        knowledge = get_knowledge_context(self)
+        if knowledge:
+            context.append(("Minecraft Knowledge", knowledge))
 
         # Add plugin reminders
         plugin_reminder = self.get_plugin_reminder_info()
@@ -1409,66 +1422,6 @@ This is essential because the new_action will result in generating a custom Pyth
         secs = math.floor(min(59, (t % 10000) % (10000 / 60)))
         return [self.bot.time.day, hrs, mins, secs]
 
-    def _get_minecraft_basics(self):
-        return """
-## Crafting & Inventory Mechanics
-
-### Crafting Grids
-- **2x2 Inventory Grid**: Always available in your inventory. Can craft basic items (planks, sticks, crafting table).
-- **3x3 Crafting Table**: Required for most recipes. Use `interact_with_block` with a crafting_table to access it, or place one from inventory.
-
-### Essential Crafting Recipes (use the `craft` action)
-These are recipes you should know without needing to discover them:
-
-**Important: Item Names** — Use specific Minecraft item names with the `craft` action. Common examples:
-- Planks: `oak_planks`, `birch_planks`, `spruce_planks`, etc. (NOT "wood_planks")
-- Logs: `oak_log`, `birch_log`, `spruce_log`, etc.
-- Generic names like `planks`, `wood_planks`, `log` are auto-resolved based on inventory.
-
-**From Logs (2x2 inventory grid):**
-- Log → 4 Planks (e.g., oak_log → oak_planks)
-- 2 Planks → 4 Sticks
-
-**From Planks (2x2 inventory grid):**
-- 4 Planks (2x2) → Crafting Table
-- 3 Planks (row) → 6 Signs
-
-**Tools (require Crafting Table):**
-- Stone tier: replace planks with cobblestone
-- Iron tier: replace with iron ingots (smelt iron ore in furnace)
-- Diamond tier: replace with diamonds
-- Gold tier: replace with gold ingots (smelt gold ore)
-
-**Smelting (requires Furnace):**
-- Iron Ore + fuel → Iron Ingot
-- Gold Ore + fuel → Gold Ingot
-- Sand + fuel → Glass
-- Cobblestone + fuel → Stone
-- Raw meat + fuel → Cooked meat (restores more hunger)
-- Clay Ball + fuel → Brick
-- Cactus + fuel → Green Dye
-- Log + fuel → Charcoal (acts as coal substitute)
-- Common fuel: coal, charcoal, lava bucket, blaze rod, wood items (less efficient)
-
-**Utility Items (require Crafting Table):**
-- 8 Cobblestone → Furnace
-- 8 Planks → Chest (stores 27 stacks)
-- 5 Leather → Leather Armor pieces / 5 Iron Ingots → Iron Armor / 5 Diamonds → Diamond Armor
-- 7 Iron Ingots → Bucket (3 per row left+right, 1 center bottom)
-- 3 Iron Ingots → Shears (2 diagonal)
-- 4 Iron Ingots + 1 Flint → Flint and Steel
-- 1 Iron Ingot + 1 Flint → Flint and Steel (alternate)
-
-### Key Game Mechanics
-- **Tool Durability**: Wooden=59, Stone=131, Iron=250, Diamond=1561, Gold=32 uses
-- **Mining Speed**: Better tools mine faster. Wrong tool won't drop items (e.g., pickaxe needed for stone).
-- **Tool Tiers**: Wood < Stone < Iron < Diamond < Netherite. Higher tier mines harder blocks.
-- **Block Hardness**: Some blocks require specific tool tiers (e.g., iron pickaxe needed for diamond ore, gold ore, redstone ore).
-- **Hunger**: Running/jumping drains hunger. Below 18 hunger = no health regen. At 0 hunger = take damage.
-- **Stacking**: Most items stack to 64. Tools/armor do not stack.
-- **Day/Night Cycle**: 20 minutes real time = 1 Minecraft day. Monsters spawn in darkness.
-- **Light**: Torches (1 stick + 1 coal) prevent hostile mob spawning. Place them to stay safe.
-"""
 
     def get_status_info(self) : 
         status = "\n\n- Game Mode: %s" % self.bot.game.gameMode

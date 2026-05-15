@@ -448,6 +448,23 @@ def get_primary_actions() :
             "perform": remember, 
         },
         {
+            "name" : "feed_animal",
+            "description" : "Feed an animal by approaching it while holding the correct food and using it on the entity. Common food pairs: wheat for cows/sheep, seeds for chickens, carrots/potatoes/beetroots for pigs, dandelion/poppy for rabbits, kelp for turtles, seagrass for turtles, cod/salmon for cats and ocelots, bone for wolves (tames them), rotten_flesh for wolves.",
+            "params": {
+                "entity_name": { "type" : "string", "description" : "The name of the animal entity to feed (e.g. 'cow', 'sheep', 'pig', 'chicken')."},
+                "food_name": { "type" : "ItemName", "description" : "The food item to feed the animal (e.g. 'wheat', 'wheat_seeds', 'carrot'). Must be in inventory."},
+            },
+            "perform" : feed_animal,
+        },
+        {
+            "name" : "breed_animals",
+            "description" : "Breed two adult animals of the same species. Automatically determines the correct breeding food for the animal type. Requires at least 2 of the food item and 2 adult animals nearby.",
+            "params" : {
+                "entity_name": { "type" : "string", "description" : "The animal species to breed (e.g. 'cow', 'sheep', 'pig', 'chicken')."},
+            },
+            "perform" : breed_animals,
+        },
+        {
             "name": "new_action",
             "description": "Dynamically write and execute a Python function to perform a task that cannot be achieved by existing predefined actions. This is a fallback mechanism for handling novel or complex tasks.",
             "params": {

@@ -11,7 +11,7 @@ class Memory(object) :
         self.records = []
         self.last_summarize_record_time = None
         self.last_process_record_time = None
-        self.summary, self.longterm_thinking = "", "" 
+        self.summary, self.longterm_thinking = "", self.agent.configs.get("longterm_thinking", "")
         self.topics, self.bank, self.skin_path = {}, {}, None
         self.bot_path = os.path.join("bots", self.agent.configs["username"])
         if not os.path.isdir(self.bot_path) : 
@@ -28,7 +28,7 @@ class Memory(object) :
             self.skin_path = data.get("skin_path", None)
             if self.agent.settings.get("load_memory", False) == True :
                 self.summary = data.get("summary", "")
-                self.longterm_thinking = data.get("longterm_thinking", self.agent.configs.get("longterm_thinking", ""))
+                self.longterm_thinking = data.get("longterm_thinking", self.longterm_thinking)
                 self.topics = data.get("topics", {})
                 self.bank = data.get("bank", {})
                 self.records += data.get("records", [])

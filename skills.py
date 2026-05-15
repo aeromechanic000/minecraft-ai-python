@@ -934,6 +934,42 @@ def consume_item(agent, item_name) :
     agent.bot.chat("I %s the %s." % (verb, actual_name))
     return True
 
+def feed_animal(agent, entity_name, food_name) :
+    """Feed an animal by equipping the correct food, approaching, and using it on the entity; call with feed_animal(agent, entity_name, food_name)."""
+    entity = get_nearest_entity_where(agent, lambda et : entity_name in et.name, 32)
+    if entity is None :
+        agent.bot.chat("I can't find any %s nearby to feed." % entity_name)
+        return False
+
+    food_item = get_an_item_in_inventory(agent, food_name)
+    if food_item is None :
+        agent.bot.chat("I don't have any %s to feed the %s." % (food_name, entity_name))
+        return False
+
+    agent.bot.equip(food_item, 'hand')
+    time.sleep(0.3)
+
+    entity_pos = get_entity_position(entity)
+    if entity_pos is None :
+        agent.bot.chat("I can't locate the %s." % entity_name)
+        return False
+
+    agent_pos = get_entity_position(agent.bot.entity)
+    if agent_pos is not None and agent_pos.distanceTo(entity_pos) > 3 :
+        go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, 2)
+
+    entity_pos = get_entity_position(entity)
+    if entity_pos is None :
+        agent.bot.chat("I lost sight of the %s." % entity_name)
+        return False
+
+    agent.bot.lookAt(entity_pos.offset(0, entity.height / 2, 0))
+    time.sleep(0.2)
+    agent.bot.activateEntity(entity)
+
+    agent.bot.chat("I fed the %s with %s." % (entity_name, food_name))
+    return True
+
 def remember(agent, key, value) :
     agent.memory.remember(key, value)
     return "Fact remembered as \"%s\"." % key

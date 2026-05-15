@@ -1,6 +1,7 @@
 
 from skills import *
 from utils import *
+from knowledge import get_breeding_food
 
 def walk_around(agent, num = 1) : 
     """Move for `num` times with a randomly selected direction and distance."""
@@ -82,6 +83,65 @@ def clean_inventory(agent, item_name="cobblestone", amount = 5):
         chat(agent, None, f"Dropped {amount} of {item_name}.")
     else:
         chat(agent, None, f"Failed to drop {item_name}.")
+
+def breed_animals(agent, entity_name) :
+    """Find two adult animals of the same species and breed them by feeding each one the correct food."""
+    food_name = get_breeding_food(entity_name, get_inventory_counts(agent))
+    if food_name is None :
+        agent.bot.chat("I don't know what food %s eats." % entity_name)
+        return False
+
+    food_item = get_an_item_in_inventory(agent, food_name)
+    if food_item is None or food_item.count < 2 :
+        agent.bot.chat("I need at least 2 %s to breed %s, but I don't have enough." % (food_name, entity_name))
+        return False
+
+    entities = list(filter(lambda et : entity_name in et.name, get_nearest_entities(agent, 32)))
+    adults = [et for et in entities if not getattr(et, 'isBaby', False)]
+
+    if len(adults) < 2 :
+        agent.bot.chat("I need at least 2 adult %s nearby to breed, but I only found %d." % (entity_name, len(adults)))
+        return False
+
+    agent.bot.chat("Breeding %s with %s." % (entity_name, food_name))
+    fed = 0
+    for i in range(2) :
+        entity = adults[i]
+        food_item = get_an_item_in_inventory(agent, food_name)
+        if food_item is None :
+            agent.bot.chat("I ran out of %s." % food_name)
+            break
+
+        agent.bot.equip(food_item, 'hand')
+        time.sleep(0.3)
+
+        entity_pos = get_entity_position(entity)
+        if entity_pos is None :
+            agent.bot.chat("I lost sight of %s #%d." % (entity_name, i + 1))
+            break
+
+        agent_pos = get_entity_position(agent.bot.entity)
+        if agent_pos is not None and agent_pos.distanceTo(entity_pos) > 3 :
+            go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, 2)
+
+        entity_pos = get_entity_position(entity)
+        if entity_pos is None :
+            agent.bot.chat("I lost sight of %s #%d." % (entity_name, i + 1))
+            break
+
+        agent.bot.lookAt(entity_pos.offset(0, entity.height / 2, 0))
+        time.sleep(0.2)
+        agent.bot.activateEntity(entity)
+        fed += 1
+        agent.bot.chat("Fed %s #%d with %s." % (entity_name, i + 1, food_name))
+        time.sleep(1)
+
+    if fed == 2 :
+        agent.bot.chat("Both %s are now in love mode! A baby should appear soon." % entity_name)
+        return True
+    else :
+        agent.bot.chat("Only fed %d out of 2 %s." % (fed, entity_name))
+        return False
 
 
 
