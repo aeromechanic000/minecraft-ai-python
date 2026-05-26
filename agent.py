@@ -1086,6 +1086,7 @@ RULES:
 - When confused or uncertain, prefer using the chat action to ask for clarification rather than guessing.
 - Do not stop current action easily - continue unless there's a clear reason to change.
 - When choosing an action, prioritize non-chat actions to make sure the task progresses.
+- ALWAYS verify task completion before reporting done. Check inventory, position, or status after key actions. If an action should produce an item, confirm it appeared in inventory before moving on. If verification fails, retry or adjust the plan instead of reporting success.
 - ALWAYS output valid JSON enclosed in triple backticks.
 '''
         context = []
@@ -1364,6 +1365,7 @@ This is essential because the new_action will result in generating a custom Pyth
         # Track current action name for mode interrupt system
         self.current_action_name = action_name
 
+        action_succeeded = True
         try:
             add_log(
                 title=self.pack_message(f"[Brain] Executing action: {action_name}"),
@@ -1380,13 +1382,22 @@ This is essential because the new_action will result in generating a custom Pyth
             if message_to_send:
                 self.bot.chat(message_to_send)
 
-            add_log(
-                title=self.pack_message(f"[Brain] Action completed: {action_name}"),
-                content=f"Result: {result}" if result else "Success",
-                label="success"
-            )
+            if result is False:
+                action_succeeded = False
+                add_log(
+                    title=self.pack_message(f"[Brain] Action failed: {action_name}"),
+                    content="Action returned failure",
+                    label="error"
+                )
+            else:
+                add_log(
+                    title=self.pack_message(f"[Brain] Action completed: {action_name}"),
+                    content=f"Result: {result}" if result else "Success",
+                    label="success"
+                )
 
         except Exception as e:
+            action_succeeded = False
             add_log(
                 title=self.pack_message(f"Action failed: {action_name}"),
                 content=f"Exception: {e}",
@@ -1396,8 +1407,13 @@ This is essential because the new_action will result in generating a custom Pyth
             self.working_process = None
             self.current_action_name = None
 
-            # Check if there are more steps in the plan and trigger continuation
-            if self.current_goal and self.current_goal.get("plan"):
+            if not action_succeeded:
+                # On failure, re-trigger decide so the LLM can re-plan instead of blindly continuing
+                record = {"type": "action_failure", "data": {"sender": self.bot.username, "content": f"Action '{action_name}' failed. Re-evaluate the plan and try a different approach."}}
+                self._enqueue_request(priority=1, source="action_failure", record=record)
+                self.bot.emit("decide")
+            elif self.current_goal and self.current_goal.get("plan"):
+                # Only advance to next step on success
                 plan = self.current_goal.get("plan", [])
                 current_idx = self.current_goal.get("current_step_index", 0)
                 # Advance to next step if there are more steps
@@ -1437,10 +1453,24 @@ This is essential because the new_action will result in generating a custom Pyth
         if pos is not None and pos.x is not None and pos.y is not None and pos.z is not None:
             status += "\n- Bot's Position: x: %s, y: %s, z: %s" % (math.floor(pos.x), math.floor(pos.y), math.floor(pos.z))
         add_log(title = self.pack_message("Get primary status."), content = status, print = False)
-        items_in_inventory, items_info = get_item_counts(self), "" 
-        for key, value in items_in_inventory.items() : 
+        # Held item info
+        held = self.bot.heldItem
+        if held is not None :
+            status += "\n- Currently Holding: %s (count: %s)" % (held.name, held.count)
+        else :
+            status += "\n- Currently Holding: nothing (empty hand)"
+        # Off-hand item (slot 45 in mineflayer; guarded by try/except since slots is a JS Proxy)
+        try :
+            offhand = self.bot.inventory.slots[45]
+            if offhand is not None :
+                status += "\n- Off-hand: %s (count: %s)" % (offhand.name, offhand.count)
+        except Exception :
+            pass
+        # Inventory
+        items_in_inventory, items_info = get_item_counts(self), ""
+        for key, value in items_in_inventory.items() :
             items_info += "%s %s;" % (value, key)
-        if len(items_info.strip()) > 0 : 
+        if len(items_info.strip()) > 0 :
             add_log(title = self.pack_message("Get inventory items info."), content = items_info, print = False)
             status += "\n- Items in Inventory: %s" % items_info
         try : 

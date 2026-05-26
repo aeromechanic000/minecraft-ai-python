@@ -83,6 +83,54 @@ These are recipes you should know without needing to discover them:
 - **Light**: Torches (1 stick + 1 coal) prevent hostile mob spawning. Place them to stay safe.
 """,
     },
+    "bucket_water_fish": {
+        "title": "Bucket, Water & Fish Mechanics",
+        "tags": "bucket water fish tropical bucket_of_water bucket_of_tropical_fish empty_bucket fill place liquid source aqua sea ocean river",
+        "content": """
+## Bucket, Water & Fish Mechanics
+
+### Getting a Bucket of Water
+1. Craft or obtain an empty bucket (7 iron ingots on crafting table)
+2. Hold the empty bucket in hand
+3. Look at a water source block (standing water in ocean, river, lake, or player-placed source)
+4. Right-click (use item) on the water → empty bucket becomes `water_bucket`
+
+### Getting a Bucket of Tropical Fish
+1. Obtain a `water_bucket` first (see above)
+2. Hold the `water_bucket` in hand
+3. Find a tropical fish swimming in water
+4. Look directly at the tropical fish (target it)
+5. Right-click (use item) on the tropical fish → `water_bucket` becomes `tropical_fish_bucket`
+
+### Key Points
+- You MUST use a `water_bucket` (not an empty bucket) to catch fish — an empty bucket will just pick up more water
+- Tropical fish are small, colorful fish found in warm ocean biomes and lush caves
+- The same mechanic works for other fish: cod, salmon, pufferfish, axolotl, tadpole — each caught with a water bucket
+- Catching a fish removes it from the world and stores it in the bucket
+- You can release a caught fish by using the fish bucket on a block (places water + fish)
+- Water source blocks are still water (not flowing water). Oceans, rivers, and lakes have source blocks
+
+### Leading/Following Animals with Held Items
+Many animals will follow you if you hold an item they are interested in (do NOT feed them — just hold it in your hand):
+
+| Entity | Held Item to Attract |
+|--------|---------------------|
+| **Axolotl** | `tropical_fish_bucket` |
+| **Cow / Sheep** | Wheat |
+| **Pig** | Carrot / Potato / Beetroot |
+| **Chicken** | Any seeds |
+| **Wolf (tamed)** | Bone (untamed) / Any meat (tamed) |
+| **Cat (untamed)** | Raw fish (cod, salmon) |
+| **Horse / Donkey** | Golden Apple / Golden Carrot (also used for taming) |
+| **Rabbit** | Carrot / Dandelion / Golden Carrot |
+
+**Key points:**
+- Simply hold the item — the animal follows you automatically
+- Do NOT right-click/feed the animal (that triggers breeding instead)
+- This works for luring animals into pens, leading them to new locations, or teaming up
+- For axolotls specifically: hold a `tropical_fish_bucket` and they follow you, which helps in underwater exploration (they attack hostile fish and give you regeneration)
+""",
+    },
     "animal_breeding": {
         "title": "Animal Breeding",
         "tags": "breed breeding animal cow sheep pig chicken wolf cat horse donkey rabbit mooshroom baby feed wheat carrot seed fish golden_apple dandelion potato beetroot love",

@@ -301,11 +301,12 @@ def use_door(agent, door_pos = None) :
         agent.bot.activateBlock(door_block)
     return True
 
-def interact_with_block(agent, block_name=None, x=None, y=None, z=None) :
+def interact_with_block(agent, block_name=None, x=None, y=None, z=None, item_name=None) :
     """Right-click to interact with a block (same as player pressing use/right-click).
     Common uses: sleep in a bed, open a chest/furnace/crafting table, flip a lever,
-    press a button, open a door/trapdoor, use an anvil/enchanting table, etc.
-    Call with either block_name (auto-finds nearest) or specific x,y,z coordinates."""
+    press a button, open a door/trapdoor, use an anvil/enchanting table, fill a bucket with water, etc.
+    Call with either block_name (auto-finds nearest) or specific x,y,z coordinates.
+    Optionally pass item_name to equip that item before interacting (e.g. 'bucket' to fill with water)."""
     if x is not None and y is not None and z is not None :
         block_pos = vec3.Vec3(x, y, z)
     elif block_name is not None :
@@ -318,14 +319,70 @@ def interact_with_block(agent, block_name=None, x=None, y=None, z=None) :
         agent.bot.chat("Please tell me which block to interact with.")
         return False
 
+    # Equip item before interacting if specified (e.g. bucket for water, bowl for stew)
+    if item_name is not None :
+        item = get_an_item_in_inventory(agent, item_name)
+        if item is None :
+            item = get_an_item_in_hotbar(agent, item_name)
+        if item is not None :
+            agent.bot.equip(item, 'hand')
+            time.sleep(0.3)
+        else :
+            agent.bot.chat("I don't have any %s to hold." % item_name)
+            return False
+
     go_to_position(agent, block_pos.x, block_pos.y, block_pos.z, 1)
     block = agent.bot.blockAt(block_pos)
     if block is None :
         agent.bot.chat("There is no block there.")
         return False
     agent.bot.lookAt(block_pos)
-    agent.bot.activateBlock(block)
+    if item_name is not None :
+        # Use the held item (e.g. bucket on water) — activateItem, not activateBlock
+        agent.bot.activateItem()
+        time.sleep(0.3)
+        agent.bot.deactivateItem()
+    else :
+        agent.bot.activateBlock(block)
     agent.bot.chat("I interacted with the %s." % block.name)
+    return True
+
+def interact_with_entity(agent, entity_name, item_name) :
+    """Right-click on an entity while holding an item (e.g. water_bucket on tropical_fish to catch it).
+    Call with interact_with_entity(agent, entity_name, item_name)."""
+    entity = get_nearest_entity_where(agent, lambda et : entity_name in et.name, 32)
+    if entity is None :
+        agent.bot.chat("I can't find any %s nearby." % entity_name)
+        return False
+
+    item = get_an_item_in_inventory(agent, item_name)
+    if item is None :
+        item = get_an_item_in_hotbar(agent, item_name)
+    if item is None :
+        agent.bot.chat("I don't have any %s to use on the %s." % (item_name, entity_name))
+        return False
+
+    agent.bot.equip(item, 'hand')
+    time.sleep(0.3)
+
+    entity_pos = get_entity_position(entity)
+    if entity_pos is None :
+        agent.bot.chat("I can't locate the %s." % entity_name)
+        return False
+
+    if get_entity_position(agent.bot.entity) is not None and get_entity_position(agent.bot.entity).distanceTo(entity_pos) > 4 :
+        go_to_position(agent, entity_pos.x, entity_pos.y, entity_pos.z, 2)
+
+    entity_pos = get_entity_position(entity)
+    if entity_pos is None :
+        agent.bot.chat("I lost sight of the %s." % entity_name)
+        return False
+
+    agent.bot.lookAt(entity_pos.offset(0, entity.height / 2, 0))
+    time.sleep(0.2)
+    agent.bot.activateEntity(entity)
+
+    agent.bot.chat("I used %s on the %s." % (item_name, entity_name))
     return True
 
 def quit_interaction(agent) :
@@ -434,14 +491,17 @@ def get_item_counts(agent) :
 
 def equip_item(agent, item_name) :
     """Equip the agent with the specified 'item_name' from inventory if found; call with equip_item(agent, item_name)."""
-    item = get_an_item_in_hotbar(agent, item_name)
-    if item is None : 
+    # Search full inventory first, then hotbar
+    item = get_an_item_in_inventory(agent, item_name)
+    if item is None :
+        item = get_an_item_in_hotbar(agent, item_name)
+    if item is None :
         agent.bot.chat("I don't have any %s to equip." % get_item_display_name(get_item_id(item_name)))
         return False
 
-    if "legging" in item_name : 
+    if "legging" in item_name :
         agent.bot.equip(item, 'legs')
-    elif "boots" in item_name : 
+    elif "boots" in item_name :
         agent.bot.equip(item, 'feet')
     elif "helmet" in item_name :
         agent.bot.equip(item, 'head')

@@ -110,7 +110,7 @@ def get_available_apis_for_new_action() :
         get_an_item_in_inventory, get_inventory_stacks,
         get_inventory_counts, get_hotbar_counts, get_item_counts,
         equip_item, drop_item, fight,
-        craft, collect_blocks, place_block, interact_with_block,
+        craft, collect_blocks, place_block, interact_with_block, interact_with_entity,
     ]
 
 def new_action(agent, task) :
@@ -371,14 +371,24 @@ def get_primary_actions() :
         },
         {
             "name" : "interact_with_block",
-            "description" : "Right-click to interact with a block (like a player pressing use). Use this to: sleep in a bed, open a chest/trapchest/barrel, open a furnace/smoker/blast furnace, use a crafting table, open a door/trapdoor/fence gate, flip a lever, press a button, use an anvil/enchanting table/brewing stand, ride a minecart, open a shulker box, etc. You can specify block_name to auto-find the nearest one, or give exact x,y,z coordinates.",
+            "description" : "Right-click to interact with a block (like a player pressing use). Use this to: sleep in a bed, open a chest/trapchest/barrel, open a furnace/smoker/blast furnace, use a crafting table, open a door/trapdoor/fence gate, flip a lever, press a button, use an anvil/enchanting table/brewing stand, ride a minecart, open a shulker box, fill a bucket with water (set item_name='bucket'), etc. You can specify block_name to auto-find the nearest one, or give exact x,y,z coordinates.",
             "params" : {
-                "block_name" : {"type": "BlockName", "description": "The name of the block to interact with (e.g. 'red_bed', 'chest', 'furnace'). Optional if x,y,z are given."},
+                "block_name" : {"type": "BlockName", "description": "The name of the block to interact with (e.g. 'red_bed', 'chest', 'furnace', 'water'). Optional if x,y,z are given."},
                 "x": {"type" : "int", "description" : "The x coordinate. Optional if block_name is given."},
                 "y": {"type" : "int", "description" : "The y coordinate. Optional if block_name is given."},
                 "z": {"type" : "int", "description" : "The z coordinate. Optional if block_name is given."},
+                "item_name": {"type" : "ItemName", "description" : "The item to hold in hand while interacting (e.g. 'bucket' to fill with water). Optional."}
             },
             "perform" : interact_with_block,
+        },
+        {
+            "name" : "interact_with_entity",
+            "description" : "Right-click on an entity while holding an item. Use this to catch fish with a water bucket (set item_name='water_bucket', entity_name='tropical_fish'), shear sheep (set item_name='shears'), or any other entity interaction that requires holding an item.",
+            "params" : {
+                "entity_name" : {"type" : "EntityName", "description" : "The name of the entity to interact with (e.g. 'tropical_fish', 'cod', 'salmon', 'sheep')."},
+                "item_name": {"type" : "ItemName", "description" : "The item to hold in hand while interacting (e.g. 'water_bucket' to catch fish). Required."},
+            },
+            "perform" : interact_with_entity,
         },
         {
             "name" : "quit_interaction",
