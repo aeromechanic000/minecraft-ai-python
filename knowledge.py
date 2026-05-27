@@ -91,9 +91,9 @@ These are recipes you should know without needing to discover them:
 
 ### Getting a Bucket of Water
 1. Craft or obtain an empty bucket (7 iron ingots on crafting table)
-2. Hold the empty bucket in hand
-3. Look at a water source block (standing water in ocean, river, lake, or player-placed source)
-4. Right-click (use item) on the water → empty bucket becomes `water_bucket`
+2. Use the `use_item_on_block` action with item_name='bucket' and block_name='water'
+3. The bot will equip the bucket, walk to the water, and use it — the empty bucket becomes `water_bucket`
+4. Then use `equip_item` with item_name='water_bucket' to hold it
 
 ### Getting a Bucket of Tropical Fish
 1. Obtain a `water_bucket` first (see above)

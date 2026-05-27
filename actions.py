@@ -371,15 +371,26 @@ def get_primary_actions() :
         },
         {
             "name" : "interact_with_block",
-            "description" : "Right-click to interact with a block (like a player pressing use). Use this to: sleep in a bed, open a chest/trapchest/barrel, open a furnace/smoker/blast furnace, use a crafting table, open a door/trapdoor/fence gate, flip a lever, press a button, use an anvil/enchanting table/brewing stand, ride a minecart, open a shulker box, fill a bucket with water (set item_name='bucket'), etc. You can specify block_name to auto-find the nearest one, or give exact x,y,z coordinates.",
+            "description" : "Right-click to interact with a block (like a player pressing use). Use this to: sleep in a bed, open a chest/trapchest/barrel, open a furnace/smoker/blast furnace, use a crafting table, open a door/trapdoor/fence gate, flip a lever, press a button, use an anvil/enchanting table/brewing stand, ride a minecart, open a shulker box. You can specify block_name to auto-find the nearest one, or give exact x,y,z coordinates. NOTE: For using a held item ON a block (e.g. filling a bucket with water), use the use_item_on_block action instead.",
             "params" : {
-                "block_name" : {"type": "BlockName", "description": "The name of the block to interact with (e.g. 'red_bed', 'chest', 'furnace', 'water'). Optional if x,y,z are given."},
+                "block_name" : {"type": "BlockName", "description": "The name of the block to interact with (e.g. 'red_bed', 'chest', 'furnace'). Optional if x,y,z are given."},
                 "x": {"type" : "int", "description" : "The x coordinate. Optional if block_name is given."},
                 "y": {"type" : "int", "description" : "The y coordinate. Optional if block_name is given."},
                 "z": {"type" : "int", "description" : "The z coordinate. Optional if block_name is given."},
-                "item_name": {"type" : "ItemName", "description" : "The item to hold in hand while interacting (e.g. 'bucket' to fill with water). Optional."}
             },
             "perform" : interact_with_block,
+        },
+        {
+            "name" : "use_item_on_block",
+            "description" : "Use (right-click) a held item while looking at a block. This sends the Minecraft 'use_item' packet which is required for fluid interactions like filling a bucket with water. Use this for: filling a bucket with water (item_name='bucket', block_name='water'), using a bowl on a mooshroom, or any other 'use item on target' action.",
+            "params" : {
+                "item_name": {"type" : "ItemName", "description" : "The item to hold and use (e.g. 'bucket' to fill with water). Required."},
+                "block_name" : {"type": "BlockName", "description": "The name of the block to target (e.g. 'water'). Optional if x,y,z are given."},
+                "x": {"type" : "int", "description" : "The x coordinate of the target block. Optional if block_name is given."},
+                "y": {"type" : "int", "description" : "The y coordinate of the target block. Optional if block_name is given."},
+                "z": {"type" : "int", "description" : "The z coordinate of the target block. Optional if block_name is given."},
+            },
+            "perform" : use_item_on_block,
         },
         {
             "name" : "interact_with_entity",

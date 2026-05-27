@@ -3,6 +3,46 @@ from model import *
 from world import *
 from utils import *
 
+# JS helper for "use held item on block" interactions (e.g. filling bucket with water).
+# In Minecraft 1.21.1, using an item on a fluid block requires the `use_item` packet
+# (not `block_place`). The rotation field must contain the player's actual look direction
+# so the server's raycast hits the target block.
+#
+# The pattern mirrors cerebellum's fall clutch: JS runs directly via vm.runInThisContext,
+# bot.look(force=true) updates lastSentYaw/Pitch, then the packet is deferred to the
+# 'move' event which fires AFTER updatePosition sends the look to the server.
+_JS_USE_ITEM_FN = None
+
+def _get_js_use_item_fn():
+    global _JS_USE_ITEM_FN
+    if _JS_USE_ITEM_FN is not None:
+        return _JS_USE_ITEM_FN
+    from javascript import require
+    vm = require('vm')
+    js_code = r'''
+function(bot, position) {
+    var target = position.offset(0.5, 0.5, 0.5);
+    var eyePos = bot.entity.position.offset(0, bot.entity.eyeHeight, 0);
+    var delta = target.minus(eyePos);
+    var yaw = Math.atan2(-delta.x, -delta.z);
+    var groundDistance = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
+    var pitch = Math.atan2(delta.y, groundDistance);
+    bot.look(yaw, pitch, true);
+    var yawDeg = yaw * 180 / Math.PI;
+    var pitchDeg = -pitch * 180 / Math.PI;
+    bot.once('move', function() {
+        bot._client.write('use_item', {
+            hand: 0,
+            sequence: 0,
+            rotation: { x: yawDeg, y: pitchDeg }
+        });
+        bot.swingArm();
+    });
+}
+'''
+    _JS_USE_ITEM_FN = vm.runInThisContext('(' + js_code + ')')
+    return _JS_USE_ITEM_FN
+
 def get_entity_position(entity) : 
     """Return the (x, y, z) position of a given entity; call with get_entity_position(entity), where entity is a valid entity object."""
     pos = None
@@ -301,12 +341,12 @@ def use_door(agent, door_pos = None) :
         agent.bot.activateBlock(door_block)
     return True
 
-def interact_with_block(agent, block_name=None, x=None, y=None, z=None, item_name=None) :
+def interact_with_block(agent, block_name=None, x=None, y=None, z=None) :
     """Right-click to interact with a block (same as player pressing use/right-click).
     Common uses: sleep in a bed, open a chest/furnace/crafting table, flip a lever,
-    press a button, open a door/trapdoor, use an anvil/enchanting table, fill a bucket with water, etc.
+    press a button, open a door/trapdoor, use an anvil/enchanting table, etc.
     Call with either block_name (auto-finds nearest) or specific x,y,z coordinates.
-    Optionally pass item_name to equip that item before interacting (e.g. 'bucket' to fill with water)."""
+    For using a held item on a block (e.g. filling a bucket with water), use use_item_on_block instead."""
     if x is not None and y is not None and z is not None :
         block_pos = vec3.Vec3(x, y, z)
     elif block_name is not None :
@@ -319,32 +359,57 @@ def interact_with_block(agent, block_name=None, x=None, y=None, z=None, item_nam
         agent.bot.chat("Please tell me which block to interact with.")
         return False
 
-    # Equip item before interacting if specified (e.g. bucket for water, bowl for stew)
-    if item_name is not None :
-        item = get_an_item_in_inventory(agent, item_name)
-        if item is None :
-            item = get_an_item_in_hotbar(agent, item_name)
-        if item is not None :
-            agent.bot.equip(item, 'hand')
-            time.sleep(0.3)
-        else :
-            agent.bot.chat("I don't have any %s to hold." % item_name)
+    go_to_position(agent, block_pos.x, block_pos.y, block_pos.z, 1)
+    block = agent.bot.blockAt(block_pos)
+    if block is None :
+        agent.bot.chat("There is no block there.")
+        return False
+    agent.bot.lookAt(block.position.offset(0.5, 0.5, 0.5))
+    agent.bot.activateBlock(block)
+    agent.bot.chat("I interacted with the %s." % block.name)
+    return True
+
+def use_item_on_block(agent, item_name, block_name=None, x=None, y=None, z=None) :
+    """Use (right-click) a held item while targeting a block. This is the correct
+    action for filling a bucket with water, using a bowl on a mooshroom, etc.
+    In Minecraft 1.21.1 this sends a use_item packet (not block_place), which is
+    required for fluid interactions like filling buckets from water source blocks.
+    Call with use_item_on_block(agent, item_name, block_name='water')."""
+    if x is not None and y is not None and z is not None :
+        block_pos = vec3.Vec3(x, y, z)
+    elif block_name is not None :
+        result = get_nearest_block(agent, block_name, 16)
+        if result is None :
+            agent.bot.chat("I can't find any %s nearby." % block_name)
             return False
+        block_pos = vec3.Vec3(result["position"].x, result["position"].y, result["position"].z)
+    else :
+        agent.bot.chat("Please tell me which block to target.")
+        return False
+
+    # Equip the item
+    item = get_an_item_in_inventory(agent, item_name)
+    if item is None :
+        item = get_an_item_in_hotbar(agent, item_name)
+    if item is not None :
+        agent.bot.equip(item, 'hand')
+        time.sleep(0.3)
+    else :
+        agent.bot.chat("I don't have any %s to use." % item_name)
+        return False
 
     go_to_position(agent, block_pos.x, block_pos.y, block_pos.z, 1)
     block = agent.bot.blockAt(block_pos)
     if block is None :
         agent.bot.chat("There is no block there.")
         return False
-    agent.bot.lookAt(block_pos)
-    if item_name is not None :
-        # Use the held item (e.g. bucket on water) — activateItem, not activateBlock
-        agent.bot.activateItem()
-        time.sleep(0.3)
-        agent.bot.deactivateItem()
-    else :
-        agent.bot.activateBlock(block)
-    agent.bot.chat("I interacted with the %s." % block.name)
+
+    # Use embedded JS: look at block center (force=true), defer use_item packet
+    # to 'move' event so server has correct position+look before processing.
+    fn = _get_js_use_item_fn()
+    fn(agent.bot, block.position)
+    time.sleep(0.5)
+    agent.bot.chat("I used %s on the %s." % (item_name, block.name))
     return True
 
 def interact_with_entity(agent, entity_name, item_name) :
