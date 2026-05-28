@@ -446,6 +446,12 @@ class Camera:
             self.viewer = self._viewer_module.Viewer.new(self.renderer)
             self.viewer.setVersion(self.bot.version)
 
+            # Cache camera/position references to prevent JSPyBridge ffid GC.
+            # Each property chain lookup (viewer.camera.position) creates temporary
+            # proxies whose ffids can be freed by Python's GC between operations.
+            self._camera = self.viewer.camera
+            self._camera_position = self._camera.position
+
             add_log(
                 title="[Camera] Viewer created",
                 content=f"Version: {self.bot.version}",
@@ -612,17 +618,22 @@ class Camera:
                 bot_pos.z
             )
 
-            self.viewer.camera.position.set(center.x, center.y, center.z)
+            # Use cached position reference to avoid JSPyBridge ffid GC race.
+            # Re-resolve from viewer if the cached reference goes stale.
+            try:
+                self._camera_position.set(center.x, center.y, center.z)
+            except Exception:
+                self._camera = self.viewer.camera
+                self._camera_position = self._camera.position
+                self._camera_position.set(center.x, center.y, center.z)
 
             # Update world view position (may or may not be async)
-            # Use try/except instead of hasattr for JSPyBridge Proxy objects
             try:
                 update_result = self.world_view.updatePosition(center)
                 if update_result is not None:
                     try:
                         await update_result
                     except TypeError:
-                        # Not awaitable, ignore
                         pass
             except Exception:
                 pass
@@ -636,7 +647,7 @@ class Camera:
 
             # Update and render
             self.viewer.update()
-            self.renderer.render(self.viewer.scene, self.viewer.camera)
+            self.renderer.render(self.viewer.scene, self._camera)
 
             # Create JPEG stream
             image_stream = self.canvas.createJPEGStream({
